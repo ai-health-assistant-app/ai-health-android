@@ -1,6 +1,5 @@
-package com.ai_health.assistant.ui.theme
+package com.ai_health.assistant.presentation.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme

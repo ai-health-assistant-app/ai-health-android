@@ -1,4 +1,4 @@
-package com.ai_health.assistant.ui.theme
+package com.ai_health.assistant.presentation.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
