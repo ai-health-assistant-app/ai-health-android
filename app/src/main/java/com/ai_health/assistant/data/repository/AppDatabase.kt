@@ -1,4 +1,4 @@
-package com.ai_health.assistant.data.cache
+package com.ai_health.assistant.data.repository
 
 import android.content.Context
 import androidx.room.Database
@@ -10,7 +10,7 @@ import androidx.room.RoomDatabase
  * This class serves as the main access point for the persisted health data,
  * providing the necessary configuration and access to DAOs.
  */
-@Database(entities = [HealthCacheEntity::class], version = 1, exportSchema = false)
+@Database(entities = [HealthCacheEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     /**

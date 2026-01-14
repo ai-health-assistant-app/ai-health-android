@@ -1,7 +1,9 @@
-package com.ai_health.assistant.data.cache
+package com.ai_health.assistant.data.repository
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.Index
+
 
 /**
  * Represents a cached health data entry in the local database.
@@ -15,7 +17,9 @@ import androidx.room.PrimaryKey
  * @property sourceApp The package name of the application that originally provided the data.
  * @property metadata Optional additional information or notes associated with the data entry.
  */
-@Entity(tableName = "health_cache")
+@Entity(
+    tableName = "health_cache",
+    indices = [Index(value = ["type", "startTime", "endTime", "sourceApp"], unique = true)])
 data class HealthCacheEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

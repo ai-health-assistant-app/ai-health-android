@@ -1,4 +1,4 @@
-package com.ai_health.assistant.data.cache
+package com.ai_health.assistant.data.repository
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -53,6 +53,19 @@ interface HealthCacheDao {
      */
     @Query("SELECT sourceApp, SUM(value) as total FROM health_cache WHERE type = 'STEPS' GROUP BY sourceApp")
     suspend fun getStepsGroupedBySource(): List<SourceStat>
+
+
+    @Query("SELECT SUM(value) FROM health_cache WHERE type = 'STEPS'")
+    suspend fun getTotalSteps(): Double?
+
+    /**
+     * Gets the latest end time for a specific data type.
+     *
+     * @param dataType The type of data (e.g., "STEPS").
+     * @return The maximum endTime in epoch milliseconds, or null if no records exist.
+     */
+    @Query("SELECT MAX(endTime) FROM health_cache WHERE type = :dataType")
+    suspend fun getLastSyncTime(dataType: String): Long?
 }
 
 /**

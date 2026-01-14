@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
                         LaunchedEffect(Unit) {
                             Log.d("MainActivity", "Starting dashboard data loading...")
                             if (healthConnectManager.hasAllPermissions()) {
-                                val data = healthConnectManager.readAllData()
+                                /*val data = healthConnectManager.readAllData()
                                 if (data != null) {
                                     // Calculate total steps from the last 7 days (as configured in the manager)
                                     stepsCount = data.steps.sumOf { it.count }.toInt()
@@ -109,7 +109,21 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     Log.e("MainActivity", "Error: readAllData returned null")
                                     stepsCount = 0
-                                }
+                                }*/
+
+
+                                //DEBUG
+                                healthConnectManager.fullResetAndResync()
+
+
+
+                                //healthConnectManager.syncAllData()
+                                stepsCount = healthConnectManager.getTotalStepsFromCache().toInt()
+
+
+
+                                Log.d("MainActivity", "Total steps in cache: $stepsCount")
+
                             } else {
                                 Log.w("MainActivity", "Permissions not granted for Health Connect")
                                 stepsCount = 0
