@@ -8,7 +8,8 @@ data class HeartRateRec(
 data class StepsRec(
     val count: Long,
     val startTime: java.time.Instant,
-    val endTime: java.time.Instant
+    val endTime: java.time.Instant,
+    val source: String
 )
 
 data class ExerciseSessionRec(
@@ -33,12 +34,18 @@ data class DistanceRec(
 )
 
 
+data class SleepStageRec(
+    val stage: Int,             // Es: 1 (Light), 2 (Deep), 3 (REM), etc.
+    val startTime: java.time.Instant,
+    val endTime: java.time.Instant
+)
+
 data class SleepSessionRec(
     val title: String?,         // Spesso null, ma utile se l'app di origine mette un titolo
     val notes: String?,
     val startTime: java.time.Instant,
-    val endTime: java.time.Instant
-    // Nota: Le fasi del sonno (REM, Deep) richiederebbero una lista di SleepStageRecord separata
+    val endTime: java.time.Instant,
+    val stages: List<SleepStageRec> = emptyList()
 )
 
 data class CaloriesRec(
