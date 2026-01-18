@@ -3,7 +3,7 @@ package com.ai_health.assistant.presentation.onboarding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.DirectionsRun
+import androidx.compose.material.icons.automirrored.rounded.DirectionsRun
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.LocalFireDepartment
@@ -59,7 +59,7 @@ fun HealthPermissionScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            PermissionItem(Icons.Rounded.DirectionsRun, "Steps", "Activity tracking")
+            PermissionItem(Icons.AutoMirrored.Rounded.DirectionsRun, "Steps", "Activity tracking")
             PermissionItem(Icons.Rounded.Favorite, "Heart Rate", "Cardio health")
             PermissionItem(Icons.Rounded.FitnessCenter, "Workouts", "Exercise logs")
             PermissionItem(Icons.Rounded.LocalFireDepartment, "Calories", "Energy burn")

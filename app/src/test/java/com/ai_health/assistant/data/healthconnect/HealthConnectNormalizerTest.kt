@@ -1,9 +1,8 @@
 package com.ai_health.assistant.data.healthconnect
 
 import android.util.Log
-import androidx.health.connect.client.records.StepsRecord
-import androidx.health.connect.client.records.metadata.DataOrigin
-import androidx.health.connect.client.records.metadata.Metadata
+import com.ai_health.core.health.RawStep
+import com.ai_health.core.data.normalization.HealthConnectNormalizer
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
@@ -41,7 +40,7 @@ class HealthConnectNormalizerTest {
     fun `normalizeSteps - accepts phone records normally`() {
         val startTime = Instant.ofEpochMilli(60000) // 1 minuto
         val records = listOf(
-            createStepsRecord(100, startTime, "com.google.android.apps.fitness")
+            createRawStep(100, startTime, "com.google.android.apps.fitness")
         )
 
         val result = normalizer.normalizeSteps(records)
@@ -55,7 +54,7 @@ class HealthConnectNormalizerTest {
     fun `normalizeSteps - discards watch records with less than 10 steps`() {
         val startTime = Instant.ofEpochMilli(60000)
         val records = listOf(
-            createStepsRecord(5, startTime, "com.xiaomi.hm.health")
+            createRawStep(5, startTime, "com.xiaomi.hm.health")
         )
 
         val result = normalizer.normalizeSteps(records)
@@ -67,7 +66,7 @@ class HealthConnectNormalizerTest {
     fun `normalizeSteps - accepts watch records with 10 or more steps`() {
         val startTime = Instant.ofEpochMilli(60000)
         val records = listOf(
-            createStepsRecord(15, startTime, "com.xiaomi.hm.health")
+            createRawStep(15, startTime, "com.xiaomi.hm.health")
         )
 
         val result = normalizer.normalizeSteps(records)
@@ -80,8 +79,8 @@ class HealthConnectNormalizerTest {
     fun `normalizeSteps - takes max value when both phone and watch records exist in same minute`() {
         val startTime = Instant.ofEpochMilli(60000)
         val records = listOf(
-            createStepsRecord(50, startTime, "com.google.android.apps.fitness"),
-            createStepsRecord(80, startTime, "com.xiaomi.wearable")
+            createRawStep(50, startTime, "com.google.android.apps.fitness"),
+            createRawStep(80, startTime, "com.xiaomi.wearable")
         )
 
         val result = normalizer.normalizeSteps(records)
@@ -97,8 +96,8 @@ class HealthConnectNormalizerTest {
         val t2 = Instant.ofEpochMilli(120000) // Minuto 2
         
         val records = listOf(
-            createStepsRecord(100, t1, "com.google.android.apps.fitness"),
-            createStepsRecord(5, t2, "com.xiaomi.hm.health") // Dovrebbe essere scartato
+            createRawStep(100, t1, "com.google.android.apps.fitness"),
+            createRawStep(5, t2, "com.xiaomi.hm.health") // Dovrebbe essere scartato
         )
 
         val result = normalizer.normalizeSteps(records)
@@ -108,16 +107,12 @@ class HealthConnectNormalizerTest {
         assertEquals(100.0, result[0].value, 0.1)
     }
 
-    private fun createStepsRecord(count: Long, startTime: Instant, packageName: String): StepsRecord {
-        return StepsRecord(
+    private fun createRawStep(count: Long, startTime: Instant, packageName: String): RawStep {
+        return RawStep(
             count = count,
-            startTime = startTime,
-            endTime = startTime.plusSeconds(30),
-            startZoneOffset = null,
-            endZoneOffset = null,
-            metadata = Metadata(
-                dataOrigin = DataOrigin(packageName)
-            )
+            startTime = startTime.toEpochMilli(),
+            endTime = startTime.plusSeconds(30).toEpochMilli(),
+            sourcePackage = packageName
         )
     }
 }

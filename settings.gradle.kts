@@ -21,4 +21,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "assistant"
 include(":app")
+include(":core:domain")
+include(":core:health")
+include(":core:data")
  

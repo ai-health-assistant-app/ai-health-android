@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.ai_health.assistant.data.repository.HealthCacheEntity
+import com.ai_health.core.data.local.HealthCacheEntity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
