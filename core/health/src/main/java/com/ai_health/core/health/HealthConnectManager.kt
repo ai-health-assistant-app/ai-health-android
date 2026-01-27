@@ -113,7 +113,14 @@ class HealthConnectManager(private val context: Context) {
                     stage = 0, 
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    stages = record.stages.map { stageRecord ->
+                        RawSleepStage(
+                            stage = stageRecord.stage,
+                            startTime = stageRecord.startTime.toEpochMilli(),
+                            endTime = stageRecord.endTime.toEpochMilli()
+                        )
+                    }
                 )
             }
         } catch (e: Exception) {
@@ -163,7 +170,7 @@ class HealthConnectManager(private val context: Context) {
     suspend fun fetchCalories(start: Instant, end: Instant): List<RawCalories> {
         return try {
             val response = healthConnectClient.readRecords(
-                ReadRecordsRequest(TotalCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end))
+                ReadRecordsRequest(ActiveCaloriesBurnedRecord::class, TimeRangeFilter.between(start, end))
             )
             response.records.map { record ->
                 RawCalories(
@@ -229,7 +236,7 @@ class HealthConnectManager(private val context: Context) {
             HealthPermission.getReadPermission(OxygenSaturationRecord::class),
             HealthPermission.getReadPermission(DistanceRecord::class),
             HealthPermission.getReadPermission(SleepSessionRecord::class),
-            HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
+            HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
             HealthPermission.getReadPermission(BasalMetabolicRateRecord::class)
         )
     }

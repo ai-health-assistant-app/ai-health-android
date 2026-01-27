@@ -1,4 +1,4 @@
-package com.ai_health.assistant.domain.model
+package com.ai_health.core.domain.model
 
 data class User(val name: String,
                 val surname: String,

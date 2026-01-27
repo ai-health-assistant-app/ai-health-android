@@ -19,12 +19,19 @@ data class RawHeartRate(
     val sourcePackage: String
 )
 
+data class RawSleepStage(
+    val stage: Int,
+    val startTime: Long,
+    val endTime: Long
+)
+
 data class RawSleep(
     val durationMinutes: Double,
-    val stage: Int, 
+    val stage: Int, // Deprecated or for summary? Kept for compatibility
     val startTime: Long,
     val endTime: Long,
-    val sourcePackage: String
+    val sourcePackage: String,
+    val stages: List<RawSleepStage> = emptyList()
 )
 
 data class RawDistance(

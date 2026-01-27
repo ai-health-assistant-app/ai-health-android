@@ -1,4 +1,4 @@
-package com.ai_health.assistant.domain.model
+package com.ai_health.core.domain.model
 
 data class HeartRateRec(
     val beatsPerMinute: Long,
@@ -13,7 +13,7 @@ data class StepsRec(
 )
 
 data class ExerciseSessionRec(
-    val exerciseType: Int,      // ID del tipo di esercizio (es. RUNNING, WALKING)
+    val exerciseType: String,      // ID del tipo di esercizio (es. RUNNING, WALKING)
     val title: String?,         // Titolo opzionale della sessione
     val notes: String?,         // Note opzionali
     val startTime: java.time.Instant,
@@ -28,6 +28,7 @@ data class OxygenSaturationRec(
 
 
 data class DistanceRec(
+    // Distanza in metri
     val distanceMeters: Double, // Distanza in metri
     val startTime: java.time.Instant,
     val endTime: java.time.Instant

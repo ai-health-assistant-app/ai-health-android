@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
                                 try {
                                     launcher.launch(HealthConnectManager.permissions)
                                 } catch (e: Exception) {
+                                    android.util.Log.e("Permissions", "Error requesting permissions", e)
                                     navController.navigate("dashboard")
                                 }
                             },
@@ -99,8 +100,7 @@ class MainActivity : ComponentActivity() {
 
                     composable("dashboard") {
                         DashboardScreen(
-                            state = state,
-                            onRefresh = { dashboardViewModel.refreshData() },
+                            viewModel = dashboardViewModel,
                             onMetricClick = { type -> navController.navigate("detail/$type") }
                         )
                     }

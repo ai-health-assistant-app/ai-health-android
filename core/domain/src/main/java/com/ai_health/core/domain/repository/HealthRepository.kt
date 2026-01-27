@@ -1,23 +1,25 @@
 package com.ai_health.core.domain.repository
 
-import com.ai_health.core.domain.model.DashboardData
-
-import com.ai_health.core.domain.model.HealthMetricPoint
+import com.ai_health.core.domain.model.BasalMetabolicRateRec
+import com.ai_health.core.domain.model.CaloriesRec
+import com.ai_health.core.domain.model.DistanceRec
+import com.ai_health.core.domain.model.ExerciseSessionRec
+import com.ai_health.core.domain.model.HeartRateRec
+import com.ai_health.core.domain.model.OxygenSaturationRec
+import com.ai_health.core.domain.model.SleepSessionRec
+import com.ai_health.core.domain.model.StepsRec
+import kotlinx.coroutines.flow.Flow
+import java.time.Instant
 
 interface HealthRepository {
     suspend fun syncHealthData()
-    suspend fun getSteps(startTime: Long): Int
-    suspend fun getSleepMinutes(startTime: Long): Int
-    suspend fun getAvgHeartRate(startTime: Long): Int
-    suspend fun getCalories(startTime: Long): Int
-    suspend fun getDistanceKm(startTime: Long): Double
-    suspend fun getOxygenSaturation(startTime: Long): Double
 
-    // History methods
-    suspend fun getStepsHistory(startTime: Long): List<HealthMetricPoint>
-    suspend fun getSleepHistory(startTime: Long): List<HealthMetricPoint>
-    suspend fun getHeartRateHistory(startTime: Long): List<HealthMetricPoint>
-    suspend fun getCaloriesHistory(startTime: Long): List<HealthMetricPoint>
-    suspend fun getDistanceHistory(startTime: Long): List<HealthMetricPoint>
-    suspend fun getOxygenHistory(startTime: Long): List<HealthMetricPoint>
+    fun getHeartRateHistory(startTime: Instant): Flow<List<HeartRateRec>>
+    fun getStepsHistory(startTime: Instant): Flow<List<StepsRec>>
+    fun getSleepHistory(startTime: Instant): Flow<List<SleepSessionRec>>
+    fun getCaloriesHistory(startTime: Instant): Flow<List<CaloriesRec>>
+    fun getDistanceHistory(startTime: Instant): Flow<List<DistanceRec>>
+    fun getOxygenHistory(startTime: Instant): Flow<List<OxygenSaturationRec>>
+    fun getExerciseHistory(startTime: Instant): Flow<List<ExerciseSessionRec>>
+    fun getBasalMetabolicRateHistory(startTime: Instant): Flow<List<BasalMetabolicRateRec>>
 }

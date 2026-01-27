@@ -1,28 +1,52 @@
 package com.ai_health.core.data.local
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
+import com.ai_health.core.data.local.converter.Converters
+import com.ai_health.core.data.local.dao.HealthMetricDao
+import com.ai_health.core.data.local.dao.SleepDao
+import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
+import com.ai_health.core.data.local.entity.CaloriesEntity
+import com.ai_health.core.data.local.entity.DistanceEntity
+import com.ai_health.core.data.local.entity.ExerciseSessionEntity
+import com.ai_health.core.data.local.entity.HeartRateEntity
+import com.ai_health.core.data.local.entity.OxygenSaturationEntity
+import com.ai_health.core.data.local.entity.SleepSessionEntity
+import com.ai_health.core.data.local.entity.SleepStageEntity
+import com.ai_health.core.data.local.entity.StepsEntity
 
-@Database(entities = [HealthCacheEntity::class], version = 2, exportSchema = false)
+@Database(
+    entities = [
+        HeartRateEntity::class,
+        StepsEntity::class,
+        ExerciseSessionEntity::class,
+        OxygenSaturationEntity::class,
+        DistanceEntity::class,
+        CaloriesEntity::class,
+        BasalMetabolicRateEntity::class,
+        SleepSessionEntity::class,
+        SleepStageEntity::class
+    ],
+    version = 1,
+    exportSchema = false
+)
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
-
-    abstract fun healthCacheDao(): HealthCacheDao
+    abstract fun healthMetricDao(): HealthMetricDao
+    abstract fun sleepDao(): SleepDao
 
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        fun getDatabase(context: Context): AppDatabase {
+        fun getDatabase(context: android.content.Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                val instance = androidx.room.Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "health_assistant_db"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
+                    "health_database"
+                ).build()
                 INSTANCE = instance
                 instance
             }
