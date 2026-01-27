@@ -1,11 +1,7 @@
-package com.ai_health.assistant.di
+package com.ai_health.core.health.di
 
 import android.content.Context
-import com.ai_health.core.data.local.AppDatabase
-import com.ai_health.core.domain.repository.HealthRepository
 import com.ai_health.core.health.HealthConnectManager
-import com.ai_health.core.data.repository.HealthRepositoryImpl
-
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,6 +11,11 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object AppModule {
-    // Dipendenze spostate nei rispettivi moduli feature/core
+object HealthModule {
+
+    @Provides
+    @Singleton
+    fun provideHealthConnectManager(@ApplicationContext context: Context): HealthConnectManager {
+        return HealthConnectManager(context)
+    }
 }

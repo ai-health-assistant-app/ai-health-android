@@ -28,7 +28,15 @@ class GetDashboardDataUseCase @Inject constructor(
             avgHeartRate = repository.getAvgHeartRate(startOfToday),
             calories = repository.getCalories(startOfToday),
             distanceKm = repository.getDistanceKm(startOfToday),
-            oxygenSaturation = repository.getOxygenSaturation(startOfToday)
+            oxygenSaturation = repository.getOxygenSaturation(startOfToday),
+            
+            // History
+            stepsHistory = repository.getStepsHistory(startOfToday),
+            sleepHistory = repository.getSleepHistory(startOfToday),
+            heartRateHistory = repository.getHeartRateHistory(startOfToday),
+            caloriesHistory = repository.getCaloriesHistory(startOfToday),
+            distanceHistory = repository.getDistanceHistory(startOfToday),
+            oxygenHistory = repository.getOxygenHistory(startOfToday)
         )
 
         emit(data)

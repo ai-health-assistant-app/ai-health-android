@@ -2,6 +2,7 @@ package com.ai_health.core.data.repository
 
 import com.ai_health.core.data.local.AppDatabase
 import com.ai_health.core.data.local.HealthCacheEntity
+import com.ai_health.core.domain.model.HealthMetricPoint
 import com.ai_health.core.domain.repository.HealthRepository
 import com.ai_health.core.health.HealthConnectManager
 import javax.inject.Inject
@@ -147,6 +148,42 @@ class HealthRepositoryImpl @Inject constructor(
 
     override suspend fun getOxygenSaturation(startTime: Long): Double {
         return dao.getAverageOxygenSaturation(startTime) ?: 0.0
+    }
+
+    override suspend fun getStepsHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("STEPS", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
+    }
+
+    override suspend fun getSleepHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("SLEEP", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
+    }
+
+    override suspend fun getHeartRateHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("HEART_RATE", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
+    }
+
+    override suspend fun getCaloriesHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("CALORIES", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
+    }
+
+    override suspend fun getDistanceHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("DISTANCE", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
+    }
+
+    override suspend fun getOxygenHistory(startTime: Long): List<HealthMetricPoint> {
+        return dao.getRecordsByTime("OXYGEN_SATURATION", startTime).map {
+            HealthMetricPoint(it.startTime, it.value)
+        }
     }
 
     private fun getStartOfToday(): Long {

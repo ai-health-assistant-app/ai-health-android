@@ -6,5 +6,13 @@ data class DashboardData(
     val avgHeartRate: Int = 0,
     val calories: Int = 0,
     val distanceKm: Double = 0.0,
-    val oxygenSaturation: Double = 0.0
+    val oxygenSaturation: Double = 0.0,
+    
+    // History Data for Charts
+    val stepsHistory: List<HealthMetricPoint> = emptyList(),
+    val heartRateHistory: List<HealthMetricPoint> = emptyList(),
+    val caloriesHistory: List<HealthMetricPoint> = emptyList(),
+    val distanceHistory: List<HealthMetricPoint> = emptyList(),
+    val oxygenHistory: List<HealthMetricPoint> = emptyList(),
+    val sleepHistory: List<HealthMetricPoint> = emptyList()
 )

@@ -24,4 +24,6 @@ include(":app")
 include(":core:domain")
 include(":core:health")
 include(":core:data")
- 
+include(":core:ui")
+include(":feature:onboarding")
+include(":feature:dashboard")
