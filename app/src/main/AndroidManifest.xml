@@ -2,6 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Camera permission for AI analysis -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Notification permission for Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Usage Stats permission for app usage tracking -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- Health Connect permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <!--<uses-permission android:name="android.permission.health.WRITE_STEPS" /> -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />

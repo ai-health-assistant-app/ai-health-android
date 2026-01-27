@@ -27,7 +27,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ai_health.core.health.HealthConnectManager
 import com.ai_health.feature.dashboard.DashboardScreen
 import com.ai_health.feature.dashboard.DashboardViewModel
-import com.ai_health.feature.onboarding.HealthPermissionScreen
+import com.ai_health.feature.onboarding.OnboardingScreen
 import com.ai_health.feature.onboarding.WelcomeScreen
 import com.ai_health.ui.theme.AssistantTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -51,10 +51,12 @@ class MainActivity : ComponentActivity() {
                 val state by dashboardViewModel.uiState.collectAsState()
 
                 // Decide start destination
-                var startDestination by remember { mutableStateOf("welcome") }
+                var startDestination by remember { mutableStateOf("onboarding") }
                 LaunchedEffect(Unit) {
-                    val manager = HealthConnectManager(context)
-                    if (manager.hasAllPermissions()) {
+                    val onboardingPrefs = context.getSharedPreferences("onboarding_prefs", MODE_PRIVATE)
+                    val isOnboardingComplete = onboardingPrefs.getBoolean("onboarding_completed", false)
+                    
+                    if (isOnboardingComplete) {
                         startDestination = "dashboard"
                         dashboardViewModel.refreshData()
                     }
@@ -62,37 +64,12 @@ class MainActivity : ComponentActivity() {
 
                 NavHost(navController = navController, startDestination = startDestination) {
 
-                    composable("welcome") {
-                        WelcomeScreen(onGetStarted = {
-                            if (availability == HealthConnectClient.SDK_UNAVAILABLE) {
-                                Toast.makeText(context, "Install Health Connect", Toast.LENGTH_LONG).show()
-                            } else {
-                                navController.navigate("permissions")
-                            }
-                        })
-                    }
-
-                    composable("permissions") {
-                        val launcher = rememberLauncherForActivityResult(
-                            PermissionController.createRequestPermissionResultContract()
-                        ) {
-                            dashboardViewModel.refreshData()
-                            navController.navigate("dashboard") {
-                                popUpTo("welcome") { inclusive = true }
-                            }
-                        }
-                        HealthPermissionScreen(
-                            onRequestPermissions = {
-                                try {
-                                    launcher.launch(HealthConnectManager.permissions)
-                                } catch (e: Exception) {
-                                    android.util.Log.e("Permissions", "Error requesting permissions", e)
-                                    navController.navigate("dashboard")
-                                }
-                            },
-                            onSkip = {
+                    composable("onboarding") {
+                        OnboardingScreen(
+                            onOnboardingComplete = {
+                                dashboardViewModel.refreshData()
                                 navController.navigate("dashboard") {
-                                    popUpTo("welcome") { inclusive = true }
+                                    popUpTo("onboarding") { inclusive = true }
                                 }
                             }
                         )
