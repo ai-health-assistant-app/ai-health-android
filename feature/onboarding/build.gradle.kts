@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     
+    // Navigation
+    implementation(libs.androidx.navigation.compose)
+    
     // Health Connect
     implementation(libs.androidx.health.connect.client)
     
