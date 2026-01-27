@@ -13,6 +13,7 @@ import java.util.UUID
 data class SleepSessionEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val title: String?,
     val notes: String?,
     val startTime: Instant,

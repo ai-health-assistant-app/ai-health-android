@@ -139,7 +139,8 @@ class HealthRepositoryImpl @Inject constructor(
                  title = null, 
                  notes = null,
                  startTime = Instant.ofEpochMilli(sessionDto.startTime),
-                 endTime = Instant.ofEpochMilli(sessionDto.endTime)
+                 endTime = Instant.ofEpochMilli(sessionDto.endTime),
+                 source = sessionDto.sourcePackage,
              )
              
              // If DTO has stages
@@ -163,7 +164,8 @@ class HealthRepositoryImpl @Inject constructor(
             com.ai_health.core.data.local.entity.HeartRateEntity(
                 id = HealthMappers.generateId("HEART_RATE", Instant.ofEpochMilli(it.startTime)),
                 beatsPerMinute = it.bpm.toLong(),
-                time = Instant.ofEpochMilli(it.startTime)
+                time = Instant.ofEpochMilli(it.startTime),
+                source = it.sourcePackage
             )
         }
         healthDao.insertHeartRates(heartEntities)
@@ -176,7 +178,8 @@ class HealthRepositoryImpl @Inject constructor(
                  id = HealthMappers.generateId("CALORIES", Instant.ofEpochMilli(it.startTime)),
                  energyKilocalories = it.kilocalories,
                  startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime)
+                 endTime = Instant.ofEpochMilli(it.endTime),
+                 source = it.sourcePackage
              )
         }
         healthDao.insertCalories(calEntities)
@@ -189,7 +192,8 @@ class HealthRepositoryImpl @Inject constructor(
                  id = HealthMappers.generateId("DISTANCE", Instant.ofEpochMilli(it.startTime)),
                  distanceMeters = it.distanceMeters,
                  startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime)
+                 endTime = Instant.ofEpochMilli(it.endTime),
+                 source = it.sourcePackage
              )
         }
         healthDao.insertDistances(distEntities)
@@ -201,7 +205,8 @@ class HealthRepositoryImpl @Inject constructor(
              com.ai_health.core.data.local.entity.OxygenSaturationEntity(
                  id = HealthMappers.generateId("OXYGEN", Instant.ofEpochMilli(it.startTime)),
                  percentage = it.percentage,
-                 time = Instant.ofEpochMilli(it.startTime)
+                 time = Instant.ofEpochMilli(it.startTime),
+                 source = it.sourcePackage
              )
         }
         healthDao.insertOxygen(oxyEntities)
@@ -216,7 +221,8 @@ class HealthRepositoryImpl @Inject constructor(
                  title = it.title,
                  notes = it.notes,
                  startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime)
+                 endTime = Instant.ofEpochMilli(it.endTime),
+                 source = it.sourcePackage
              )
         }
         healthDao.insertExercises(exEntities)
@@ -256,7 +262,7 @@ class HealthRepositoryImpl @Inject constructor(
     override fun getBasalMetabolicRateHistory(startTime: Instant): Flow<List<BasalMetabolicRateRec>> {
          // Assuming DAO has BMR
          return healthDao.getBmr(startTime).map { list -> list.map { 
-             BasalMetabolicRateRec(it.energyKilocaloriesPerDay, it.time)
+             BasalMetabolicRateRec(it.source, it.energyKilocaloriesPerDay, it.time)
          } }
     }
 }

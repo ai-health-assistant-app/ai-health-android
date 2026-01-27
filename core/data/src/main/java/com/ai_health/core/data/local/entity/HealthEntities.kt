@@ -12,6 +12,7 @@ import java.util.UUID
 data class HeartRateEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val beatsPerMinute: Long,
     val time: Instant
 )
@@ -30,6 +31,7 @@ data class StepsEntity(
 data class ExerciseSessionEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val exerciseType: String,
     val title: String?,
     val notes: String?,
@@ -41,6 +43,7 @@ data class ExerciseSessionEntity(
 data class OxygenSaturationEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val percentage: Double,
     val time: Instant
 )
@@ -49,6 +52,7 @@ data class OxygenSaturationEntity(
 data class DistanceEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val distanceMeters: Double,
     val startTime: Instant,
     val endTime: Instant
@@ -58,6 +62,7 @@ data class DistanceEntity(
 data class CaloriesEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val energyKilocalories: Double,
     val startTime: Instant,
     val endTime: Instant
@@ -67,6 +72,7 @@ data class CaloriesEntity(
 data class BasalMetabolicRateEntity(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
+    val source: String,
     val energyKilocaloriesPerDay: Double,
     val time: Instant
 )

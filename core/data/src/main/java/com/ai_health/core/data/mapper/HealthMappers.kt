@@ -42,14 +42,16 @@ object HealthMappers {
         return HeartRateEntity(
             id = generateId("HEART_RATE", this.time),
             beatsPerMinute = this.beatsPerMinute,
-            time = this.time
+            time = this.time,
+            source = this.source
         )
     }
 
     fun HeartRateEntity.toDomain(): HeartRateRec {
         return HeartRateRec(
             beatsPerMinute = this.beatsPerMinute,
-            time = this.time
+            time = this.time,
+            source = this.source
         )
     }
 
@@ -79,7 +81,8 @@ object HealthMappers {
             id = generateId("CALORIES", this.startTime),
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -87,7 +90,8 @@ object HealthMappers {
         return CaloriesRec(
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -97,7 +101,8 @@ object HealthMappers {
             id = generateId("DISTANCE", this.startTime),
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -105,7 +110,8 @@ object HealthMappers {
         return DistanceRec(
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -114,14 +120,16 @@ object HealthMappers {
         return OxygenSaturationEntity(
             id = generateId("OXYGEN", this.time),
             percentage = this.percentage,
-            time = this.time
+            time = this.time,
+            source = this.source
         )
     }
 
     fun OxygenSaturationEntity.toDomain(): OxygenSaturationRec {
         return OxygenSaturationRec(
             percentage = this.percentage,
-            time = this.time
+            time = this.time,
+            source = this.source
         )
     }
 
@@ -133,7 +141,8 @@ object HealthMappers {
             title = this.title,
             notes = this.notes,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -143,7 +152,8 @@ object HealthMappers {
             title = this.title,
             notes = this.notes,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -154,7 +164,8 @@ object HealthMappers {
             title = this.title,
             notes = this.notes,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
         )
     }
 
@@ -174,7 +185,8 @@ object HealthMappers {
             notes = this.session.notes,
             startTime = this.session.startTime,
             endTime = this.session.endTime,
-            stages = this.stages.map { it.toDomain() }
+            stages = this.stages.map { it.toDomain() },
+            source = this.session.source
         )
     }
 
