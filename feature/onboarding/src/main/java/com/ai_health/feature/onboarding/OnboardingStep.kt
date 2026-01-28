@@ -1,7 +1,6 @@
 package com.ai_health.feature.onboarding
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -16,13 +15,6 @@ sealed class OnboardingStep(
     val icon: ImageVector,
     val permissionType: PermissionType
 ) {
-    data object Camera : OnboardingStep(
-        title = "Camera Access",
-        description = "Allow camera access to enable AI-powered health scanning and analysis features.",
-        icon = Icons.Default.Camera,
-        permissionType = PermissionType.RuntimePermission(android.Manifest.permission.CAMERA)
-    )
-
     data object HealthConnect : OnboardingStep(
         title = "Health Connect",
         description = "Connect to Health Connect to sync your health data from various sources for comprehensive tracking.",
@@ -46,7 +38,6 @@ sealed class OnboardingStep(
 
     companion object {
         fun getAllSteps(): List<OnboardingStep> = listOf(
-            Camera,
             HealthConnect,
             UsageStats,
             Notifications
