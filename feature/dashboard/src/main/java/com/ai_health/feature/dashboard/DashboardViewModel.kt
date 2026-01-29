@@ -1,5 +1,6 @@
 package com.ai_health.feature.dashboard
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ai_health.core.domain.usecase.GetDashboardDataUseCase
@@ -20,13 +21,13 @@ import com.ai_health.core.domain.repository.HealthRepository
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
-    private val healthRepository: HealthRepository // Need repo for sync, or use UseCase if it exposed sync. UseCase currently only invoke() -> Flow. 
-    // User instruction: "Sync: Nel blocco init, lancia ... repository.syncHealthData()". 
-    // So I need repository injected OR UseCase needs a sync method.
-    // The previous UseCase code calling repository.syncHealthData() was removed.
-    // I should probably skip injecting repository if I can, but instruction says "repository.syncHealthData()".
-    // I will inject Repository.
+    private val healthRepository: HealthRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    companion object {
+        private const val KEY_IS_REFRESHING = "is_refreshing"
+    }
 
     val uiState: StateFlow<DashboardUiState> = getDashboardDataUseCase()
         .map { data ->
@@ -76,8 +77,7 @@ class DashboardViewModel @Inject constructor(
             initialValue = DashboardUiState(isLoading = true)
         )
 
-    private val _isRefreshing = MutableStateFlow(false)
-    val isRefreshing = _isRefreshing.asStateFlow()
+    val isRefreshing: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_IS_REFRESHING, false)
 
     init {
         refreshData()
@@ -85,7 +85,7 @@ class DashboardViewModel @Inject constructor(
 
     fun refreshData() {
         viewModelScope.launch {
-            _isRefreshing.value = true
+            savedStateHandle[KEY_IS_REFRESHING] = true
             try {
                 // Forza il sync dei dati da Health Connect
                 healthRepository.syncHealthData()
@@ -93,7 +93,7 @@ class DashboardViewModel @Inject constructor(
                 e.printStackTrace()
             } finally {
                 // Fondamentale: Spegne l'indicatore alla fine
-                _isRefreshing.value = false
+                savedStateHandle[KEY_IS_REFRESHING] = false
             }
         }
     }

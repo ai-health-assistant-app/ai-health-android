@@ -22,6 +22,8 @@ ksp = "2.1.0-1.0.29"
 coroutines = "1.9.0"
 appcompat = "1.7.1"
 material = "1.13.0"
+mockk = "1.13.13"
+javaxInject = "1"
 
 [libraries]
 # AndroidX Core & Lifecycle
@@ -73,8 +75,11 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+javax-inject = { group = "javax.inject", name = "javax.inject", version.ref = "javaxInject" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

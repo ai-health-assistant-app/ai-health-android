@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.health.connect.client.HealthConnectClient
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ai_health.core.health.HealthConnectManager
@@ -33,8 +34,13 @@ data class OnboardingUiState(
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    companion object {
+        private const val KEY_CURRENT_STEP = "current_step"
+    }
 
     private val _uiState = MutableStateFlow(OnboardingUiState())
     val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
@@ -44,6 +50,10 @@ class OnboardingViewModel @Inject constructor(
     }
 
     init {
+        // Ripristina currentStep da SavedStateHandle se disponibile
+        val savedStep = savedStateHandle.get<Int>(KEY_CURRENT_STEP) ?: 0
+        _uiState.update { it.copy(currentStep = savedStep) }
+        
         checkOnboardingCompletion()
     }
 
@@ -118,19 +128,24 @@ class OnboardingViewModel @Inject constructor(
     fun nextStep() {
         val currentStep = _uiState.value.currentStep
         if (currentStep < _uiState.value.steps.size - 1) {
-            _uiState.update { it.copy(currentStep = currentStep + 1) }
+            val newStep = currentStep + 1
+            savedStateHandle[KEY_CURRENT_STEP] = newStep
+            _uiState.update { it.copy(currentStep = newStep) }
         }
     }
 
     fun previousStep() {
         val currentStep = _uiState.value.currentStep
         if (currentStep > 0) {
-            _uiState.update { it.copy(currentStep = currentStep - 1) }
+            val newStep = currentStep - 1
+            savedStateHandle[KEY_CURRENT_STEP] = newStep
+            _uiState.update { it.copy(currentStep = newStep) }
         }
     }
 
     fun goToStep(index: Int) {
         if (index in 0 until _uiState.value.steps.size) {
+            savedStateHandle[KEY_CURRENT_STEP] = index
             _uiState.update { it.copy(currentStep = index) }
         }
     }
