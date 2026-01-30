@@ -36,11 +36,19 @@ sealed class OnboardingStep(
         permissionType = PermissionType.RuntimePermission(android.Manifest.permission.POST_NOTIFICATIONS)
     )
 
+    data object ActivityRecognition : OnboardingStep(
+        title = "Activity Recognition",
+        description = "Allow the app to detect when you are driving or stationary to improve step accuracy.",
+        icon = Icons.Default.FitnessCenter, // Reuse icon or find better one if available
+        permissionType = PermissionType.RuntimePermission(android.Manifest.permission.ACTIVITY_RECOGNITION)
+    )
+
     companion object {
         fun getAllSteps(): List<OnboardingStep> = listOf(
             HealthConnect,
             UsageStats,
-            Notifications
+            Notifications,
+            ActivityRecognition
         )
     }
 }

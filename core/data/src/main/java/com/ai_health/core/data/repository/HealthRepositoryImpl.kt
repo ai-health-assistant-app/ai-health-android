@@ -104,7 +104,7 @@ class HealthRepositoryImpl @Inject constructor(
              // The previous file had `healthConnectNormalizer.normalizeSteps(rawSteps)`.
              // I'll assume direct mapping for now.
              com.ai_health.core.data.local.entity.StepsEntity(
-                 id = HealthMappers.generateId("STEPS", Instant.ofEpochMilli(it.startTime)),
+                 id = HealthMappers.generateId("STEPS", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                  count = it.count,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -135,7 +135,7 @@ class HealthRepositoryImpl @Inject constructor(
             // For now, I'll assume I can construct a SleepSessionEntity.
             
              val sessionEntity = com.ai_health.core.data.local.entity.SleepSessionEntity(
-                 id = HealthMappers.generateId("SLEEP_SESSION", Instant.ofEpochMilli(sessionDto.startTime)),
+                 id = HealthMappers.generateId("SLEEP_SESSION", Instant.ofEpochMilli(sessionDto.startTime), sessionDto.sourcePackage),
                  title = null, 
                  notes = null,
                  startTime = Instant.ofEpochMilli(sessionDto.startTime),
@@ -146,7 +146,7 @@ class HealthRepositoryImpl @Inject constructor(
              // If DTO has stages
              val stageEntities = sessionDto.stages.map { stageDto ->
                  com.ai_health.core.data.local.entity.SleepStageEntity(
-                     id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
+                     id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)), // Stages usually don't have separate source, inherint from session or unique enough by time?
                      sleepSessionId = sessionEntity.id,
                      stage = stageDto.stage,
                      startTime = Instant.ofEpochMilli(stageDto.startTime),
@@ -162,7 +162,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${heart.size} heart rate records")
         val heartEntities = heart.map {
             com.ai_health.core.data.local.entity.HeartRateEntity(
-                id = HealthMappers.generateId("HEART_RATE", Instant.ofEpochMilli(it.startTime)),
+                id = HealthMappers.generateId("HEART_RATE", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                 beatsPerMinute = it.bpm.toLong(),
                 time = Instant.ofEpochMilli(it.startTime),
                 source = it.sourcePackage
@@ -175,7 +175,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${calories.size} calories records")
         val calEntities = calories.map {
              com.ai_health.core.data.local.entity.CaloriesEntity(
-                 id = HealthMappers.generateId("CALORIES", Instant.ofEpochMilli(it.startTime)),
+                 id = HealthMappers.generateId("CALORIES", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                  energyKilocalories = it.kilocalories,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -189,7 +189,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${distance.size} distance records")
         val distEntities = distance.map {
              com.ai_health.core.data.local.entity.DistanceEntity(
-                 id = HealthMappers.generateId("DISTANCE", Instant.ofEpochMilli(it.startTime)),
+                 id = HealthMappers.generateId("DISTANCE", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                  distanceMeters = it.distanceMeters,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -203,7 +203,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${oxygen.size} oxygen records")
         val oxyEntities = oxygen.map {
              com.ai_health.core.data.local.entity.OxygenSaturationEntity(
-                 id = HealthMappers.generateId("OXYGEN", Instant.ofEpochMilli(it.startTime)),
+                 id = HealthMappers.generateId("OXYGEN", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                  percentage = it.percentage,
                  time = Instant.ofEpochMilli(it.startTime),
                  source = it.sourcePackage
@@ -216,7 +216,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${exercise.size} exercise records")
         val exEntities = exercise.map {
              com.ai_health.core.data.local.entity.ExerciseSessionEntity(
-                 id = HealthMappers.generateId("EXERCISE", Instant.ofEpochMilli(it.startTime)),
+                 id = HealthMappers.generateId("EXERCISE", Instant.ofEpochMilli(it.startTime), it.sourcePackage),
                  exerciseType = it.type,
                  title = it.title,
                  notes = it.notes,

@@ -26,7 +26,8 @@ import com.ai_health.core.data.local.entity.StepsEntity
         CaloriesEntity::class,
         BasalMetabolicRateEntity::class,
         SleepSessionEntity::class,
-        SleepStageEntity::class
+        SleepStageEntity::class,
+        com.ai_health.core.data.local.entity.UserActivityEntity::class
     ],
     version = 2,
     exportSchema = false
@@ -35,6 +36,7 @@ import com.ai_health.core.data.local.entity.StepsEntity
 abstract class AppDatabase : RoomDatabase() {
     abstract fun healthMetricDao(): HealthMetricDao
     abstract fun sleepDao(): SleepDao
+    abstract fun activityLogDao(): com.ai_health.core.data.local.dao.ActivityLogDao
 
     companion object {
         @Volatile

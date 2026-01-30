@@ -35,6 +35,7 @@ data class OnboardingUiState(
 class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val healthConnectManager: HealthConnectManager,
+    private val activityRecognitionManager: com.ai_health.core.data.manager.ActivityRecognitionManager,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -173,6 +174,19 @@ class OnboardingViewModel @Inject constructor(
             it.copy(
                 permissionStatuses = it.permissionStatuses + (step to status)
             )
+        }
+        
+        // If Activity Recognition is granted, start updates immediately
+        if (step is OnboardingStep.ActivityRecognition && status == PermissionStatus.Granted) {
+             startActivityRecognition()
+        }
+    }
+
+    private fun startActivityRecognition() {
+        try {
+             activityRecognitionManager.requestUpdates()
+        } catch (e: Exception) {
+            // Ignore if fails silently
         }
     }
 }

@@ -43,4 +43,6 @@ dependencies {
     // core:health exposes DTOs. core:data maps DTO -> Entity -> Domain.
     // So core:data might not need health connect client directly if core:health encapsulates it fully.
     // But let's assume core:health API is sufficient.
+
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 }

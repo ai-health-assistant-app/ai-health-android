@@ -21,6 +21,12 @@ abstract class RepositoryModule {
     abstract fun bindHealthRepository(
         healthRepositoryImpl: HealthRepositoryImpl
     ): HealthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindActivityLogRepository(
+        activityLogRepositoryImpl: com.ai_health.core.data.repository.ActivityLogRepositoryImpl
+    ): com.ai_health.core.domain.repository.ActivityLogRepository
 }
 
 @Module
@@ -31,5 +37,11 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         return AppDatabase.getDatabase(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideActivityLogDao(appDatabase: AppDatabase): com.ai_health.core.data.local.dao.ActivityLogDao {
+        return appDatabase.activityLogDao()
     }
 }

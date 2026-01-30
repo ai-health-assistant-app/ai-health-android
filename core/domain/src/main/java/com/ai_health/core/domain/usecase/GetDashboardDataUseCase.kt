@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
@@ -19,14 +20,31 @@ import com.ai_health.core.domain.model.OxygenSaturationRec
 import java.time.Instant
 
 class GetDashboardDataUseCase @Inject constructor(
-    private val repository: HealthRepository
+    private val repository: HealthRepository,
+    private val validateStepCountUseCase: ValidateStepCountUseCase
 ) {
     operator fun invoke(): Flow<DashboardData> {
         val startOfToday = LocalDate.now()
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
 
-        val stepsFlow = repository.getStepsHistory(startOfToday)
+        // 1. Validated Steps Flow (Optimized)
+        val validatedStepsFlow = repository.getStepsHistory(startOfToday)
+            .distinctUntilChanged()
+            .map { stepsList ->
+                // Map generic StepsRec to Domain RawStep
+                val rawSteps = stepsList.map {
+                    com.ai_health.core.domain.model.RawStep(
+                        startTime = it.startTime,
+                        endTime = it.endTime,
+                        source = classifySource(it.source),
+                        rawCount = it.count
+                    )
+                }
+                // Apply Validation Logic only when steps actually change
+                validateStepCountUseCase(rawSteps)
+            }
+
         val sleepFlow = repository.getSleepHistory(startOfToday)
         val heartFlow = repository.getHeartRateHistory(startOfToday)
         val caloriesFlow = repository.getCaloriesHistory(startOfToday)
@@ -34,19 +52,23 @@ class GetDashboardDataUseCase @Inject constructor(
         val oxygenFlow = repository.getOxygenHistory(startOfToday)
 
         return combine(
-            combine(stepsFlow, sleepFlow, heartFlow, ::Triple),
+            combine(validatedStepsFlow, sleepFlow, heartFlow, ::Triple),
             combine(caloriesFlow, distanceFlow, oxygenFlow, ::Triple)
-        ) { (steps, sleep, heart), (calories, distance, oxygen) ->
-            
+        ) { (validatedSteps, sleep, heart), (calories, distance, oxygen) ->
+
             DashboardData(
-                steps = steps.sumOf { it.count }.toInt(),
+                // Use validated steps for total and history
+                steps = validatedSteps.sumOf { it.effectiveCount }.toInt(),
+                
                 sleepMinutes = sleep.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }.toInt(),
                 avgHeartRate = if (heart.isNotEmpty()) heart.map { it.beatsPerMinute }.average().toInt() else 0,
                 calories = calories.sumOf { it.energyKilocalories }.toInt(),
                 distanceKm = distance.sumOf { it.distanceMeters } / 1000.0,
                 oxygenSaturation = if (oxygen.isNotEmpty()) oxygen.map { it.percentage }.average() else 0.0,
 
-                stepsHistory = steps.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.count.toDouble()) },
+                stepsHistory = validatedSteps.map { 
+                    HealthMetricPoint(it.startTime.toEpochMilli(), it.effectiveCount.toDouble()) 
+                },
                 sleepHistory = sleep.map { 
                     val minutes = java.time.Duration.between(it.startTime, it.endTime).toMinutes().toDouble()
                     HealthMetricPoint(it.startTime.toEpochMilli(), minutes) 
@@ -57,5 +79,23 @@ class GetDashboardDataUseCase @Inject constructor(
                 oxygenHistory = oxygen.map { HealthMetricPoint(it.time.toEpochMilli(), it.percentage) }
             )
         }
+    }
+
+    private fun classifySource(packageName: String): com.ai_health.core.domain.model.StepSource {
+        val lower = packageName.lowercase()
+        println("StepSourceDebug: Classifying '$packageName' (lower: '$lower')")
+        
+        // Rule 1: Specific keywords imply WEARABLE source
+        // This includes "com.xiaomi.wearable" which organizes data from Xiaomi devices
+        if (lower.contains("wearable") ||
+            lower.contains("watch") ||
+            lower.contains("garmin") ||
+            lower.contains("fitbit") ||
+            lower.contains("xiaomi")) {
+            return com.ai_health.core.domain.model.StepSource.WEARABLE
+        }
+
+        // Rule 2: Google Fit and generic apps -> PHONE
+        return com.ai_health.core.domain.model.StepSource.PHONE
     }
 }

@@ -27,8 +27,14 @@ import java.util.UUID
 object HealthMappers {
 
     // --- Deterministic ID Generation ---
-    fun generateId(type: String, time: Instant): String {
-        return generateHash(type + time.toEpochMilli())
+    // --- Deterministic ID Generation ---
+    fun generateId(type: String, time: Instant, source: String? = null): String {
+        val input = if (source != null) {
+            type + time.toEpochMilli() + source
+        } else {
+            type + time.toEpochMilli()
+        }
+        return generateHash(input)
     }
 
     private fun generateHash(input: String): String {
@@ -40,7 +46,7 @@ object HealthMappers {
     // --- Heart Rate ---
     fun HeartRateRec.toEntity(): HeartRateEntity {
         return HeartRateEntity(
-            id = generateId("HEART_RATE", this.time),
+            id = generateId("HEART_RATE", this.time, this.source),
             beatsPerMinute = this.beatsPerMinute,
             time = this.time,
             source = this.source
@@ -58,7 +64,7 @@ object HealthMappers {
     // --- Steps ---
     fun StepsRec.toEntity(): StepsEntity {
         return StepsEntity(
-            id = generateId("STEPS", this.startTime),
+            id = generateId("STEPS", this.startTime, this.source),
             count = this.count,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -78,7 +84,7 @@ object HealthMappers {
     // --- Calories ---
     fun CaloriesRec.toEntity(): CaloriesEntity {
         return CaloriesEntity(
-            id = generateId("CALORIES", this.startTime),
+            id = generateId("CALORIES", this.startTime, this.source),
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -98,7 +104,7 @@ object HealthMappers {
     // --- Distance ---
     fun DistanceRec.toEntity(): DistanceEntity {
         return DistanceEntity(
-            id = generateId("DISTANCE", this.startTime),
+            id = generateId("DISTANCE", this.startTime, this.source),
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -118,7 +124,7 @@ object HealthMappers {
     // --- Oxygen ---
     fun OxygenSaturationRec.toEntity(): OxygenSaturationEntity {
         return OxygenSaturationEntity(
-            id = generateId("OXYGEN", this.time),
+            id = generateId("OXYGEN", this.time, this.source),
             percentage = this.percentage,
             time = this.time,
             source = this.source
@@ -136,7 +142,7 @@ object HealthMappers {
     // --- Exercise ---
     fun ExerciseSessionRec.toEntity(): ExerciseSessionEntity {
         return ExerciseSessionEntity(
-            id = generateId("EXERCISE", this.startTime),
+            id = generateId("EXERCISE", this.startTime, this.source),
             exerciseType = this.exerciseType,
             title = this.title,
             notes = this.notes,
@@ -160,7 +166,7 @@ object HealthMappers {
     // --- Sleep ---
     fun SleepSessionRec.toEntity(): SleepSessionEntity {
         return SleepSessionEntity(
-            id = generateId("SLEEP_SESSION", this.startTime),
+            id = generateId("SLEEP_SESSION", this.startTime, this.source),
             title = this.title,
             notes = this.notes,
             startTime = this.startTime,

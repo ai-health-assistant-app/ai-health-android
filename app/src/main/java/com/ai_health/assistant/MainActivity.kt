@@ -9,6 +9,7 @@ import androidx.health.connect.client.HealthConnectClient
 import com.ai_health.assistant.navigation.AppNavHost
 import com.ai_health.ui.theme.AssistantTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Main entry point for the AI Health Assistant application.
@@ -20,13 +21,20 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var activityRecognitionManager: com.ai_health.core.data.manager.ActivityRecognitionManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Health Connect SDK availability check
         // Note: This check is performed but not currently used
         // Future enhancement: Show appropriate UI if SDK is unavailable
-        val availability = HealthConnectClient.getSdkStatus(this)
+        HealthConnectClient.getSdkStatus(this)
+
+        // Start Activity Recognition if permission is granted
+        startActivityRecognitionIfPossible()
 
         setContent {
             AssistantTheme {
@@ -36,6 +44,21 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 )
             }
+        }
+    }
+
+    private fun startActivityRecognitionIfPossible() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    this,
+                    android.Manifest.permission.ACTIVITY_RECOGNITION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                activityRecognitionManager.requestUpdates()
+            }
+        } else {
+            // Pre-Q (API 29), permission is not runtime, so just request
+            activityRecognitionManager.requestUpdates()
         }
     }
 }
