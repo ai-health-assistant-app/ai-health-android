@@ -2,47 +2,65 @@ package com.ai_health.core.domain.usecase
 
 import com.ai_health.core.domain.model.RawStep
 import com.ai_health.core.domain.model.StepSource
-import com.ai_health.core.domain.model.UserActivity
+import com.ai_health.core.domain.model.SleepSessionRec
 import com.ai_health.core.domain.model.UserActivityType
 import com.ai_health.core.domain.model.ValidatedStep
 import com.ai_health.core.domain.repository.ActivityLogRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import java.time.Instant
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
 class ValidateStepCountUseCase @Inject constructor(
-    private val activityLogRepository: ActivityLogRepository
+    private val activityLogRepository: ActivityLogRepository,
+    private val healthRepository: com.ai_health.core.domain.repository.HealthRepository
 ) {
 
     /**
-     * Validates a list of raw steps by:
-     * 1. Separating steps by Source (Phone vs Wearable).
-     * 2. Cleaning Phone steps using aggressive Ghost Step detection.
-     * 3. Merging: Discarding Phone steps that overlap with ANY Wearable data.
+     * Validates a list of raw steps using strictly defined policies.
+     * With GRANULAR [StepValidator] logging for deep debugging.
      */
     suspend operator fun invoke(rawSteps: List<RawStep>): List<ValidatedStep> {
-        println("[StepValidator] START Analysis - Raw Steps: ${rawSteps.size}")
-        if (rawSteps.isEmpty()) return emptyList()
+        println("[StepValidator] ==================================================")
+        println("[StepValidator] >>> START VALIDATION | Total Raw Steps: ${rawSteps.size}")
+        
+        if (rawSteps.isEmpty()) {
+            println("[StepValidator] Input is empty. Returning empty list.")
+            return emptyList()
+        }
 
-        // 1. Separate Sources
+        // 0. Pre-analysis
         val phoneSteps = rawSteps.filter { it.source == StepSource.PHONE }
         val wearableSteps = rawSteps.filter { it.source == StepSource.WEARABLE }
-        println("[StepValidator] Sources -> Phone: ${phoneSteps.size}, Wearable: ${wearableSteps.size}")
+        println("[StepValidator] Input Breakdown -> Phone: ${phoneSteps.size} | Wearable: ${wearableSteps.size}")
 
-        // 2. Clean Phone Steps (Ghost Step Logic)
-        val cleanedPhoneSteps = cleanPhoneSteps(phoneSteps)
-        println("[StepValidator] Phone Cleaning -> Removed ${phoneSteps.size - cleanedPhoneSteps.size} ghost steps. Remaining: ${cleanedPhoneSteps.size}")
+        // Policy 1: Trust Wearable (Lazy Sync Friendly)
+        val hasWearableData = wearableSteps.isNotEmpty()
 
-        // 3. Merge Logic (Temporal Prioritization)
-        // Wearable steps are "Ground Truth" for the time periods they cover.
-        // Any phone step overlapping with a Wearable interval is discarded.
-        val mergedSteps = mergeSteps(cleanedPhoneSteps, wearableSteps)
-        val totalCount = mergedSteps.sumOf { it.rawCount }
-        println("[StepValidator] Merging -> Total Final Steps: ${mergedSteps.size} records (Total Count: $totalCount)")
+        val preliminarySteps = if (hasWearableData) {
+            println("[StepValidator] [STRATEGY: TRUST WEARABLE]")
+            println("[StepValidator] Wearable data detected. Discarding ${phoneSteps.size} Phone steps (Silence Assenso).")
+             // Optional: Log discarded phone steps summary
+            if (phoneSteps.isNotEmpty()) {
+                val first = phoneSteps.first()
+                val last = phoneSteps.last()
+                println("[StepValidator] -> Discarded Phone Range: ${first.startTime} to ${last.endTime}")
+            }
+            wearableSteps
+        } else {
+            println("[StepValidator] [STRATEGY: FALLBACK PHONE]")
+            println("[StepValidator] No Wearable data found. Using Fallback logic on ${phoneSteps.size} Phone steps.")
+            validatePhoneStepsWithActivity(phoneSteps)
+        }
 
-        return mergedSteps.map { 
-             ValidatedStep(
+        // Policy 3: Global Sleep Filter
+        println("[StepValidator] [FILTER: SLEEP CHECK] Inspecting ${preliminarySteps.size} candidates...")
+        val finalSteps = filterStepsBySleepData(preliminarySteps)
+
+        val totalValidatedSteps = finalSteps.sumOf { it.rawCount }
+        println("[StepValidator] <<< END VALIDATION | Kept: ${finalSteps.size} records | Total Volume: $totalValidatedSteps steps")
+        println("[StepValidator] ==================================================")
+        
+        return finalSteps.map {
+            ValidatedStep(
                 startTime = it.startTime,
                 endTime = it.endTime,
                 effectiveCount = it.rawCount
@@ -50,98 +68,83 @@ class ValidateStepCountUseCase @Inject constructor(
         }.sortedBy { it.startTime }
     }
 
-    private suspend fun cleanPhoneSteps(steps: List<RawStep>): List<RawStep> {
-        val validSteps = mutableListOf<RawStep>()
+    private suspend fun filterStepsBySleepData(steps: List<RawStep>): List<RawStep> {
+        if (steps.isEmpty()) return emptyList()
+
+        val queryTime = steps.first().startTime.minusSeconds(86400)
+        
+        println("[StepValidator] Querying Sleep History since $queryTime")
+        val sleepSessions: List<SleepSessionRec> = try {
+            healthRepository.getSleepHistory(queryTime).firstOrNull() ?: emptyList()
+        } catch (e: Exception) {
+            println("[StepValidator] [ERROR] Failed to fetch sleep history: ${e.message}")
+            emptyList()
+        }
+
+        if (sleepSessions.isNotEmpty()) {
+            println("[StepValidator] Found ${sleepSessions.size} Sleep Sessions for today:")
+            sleepSessions.forEach { println("[StepValidator]    -> Sleep Session: ${it.startTime} to ${it.endTime} (${it.source})") }
+        } else {
+            println("[StepValidator] No Sleep Sessions found. Skipping filter.")
+            return steps
+        }
+
+        val filteredSteps = mutableListOf<RawStep>()
+        var droppedSleepSteps = 0
 
         for (step in steps) {
+            val overlappingSession: SleepSessionRec? = sleepSessions.find { session ->
+                val stepStart = step.startTime.toEpochMilli()
+                val stepEnd = step.endTime.toEpochMilli()
+                val sleepStart = session.startTime.toEpochMilli()
+                val sleepEnd = session.endTime.toEpochMilli()
+                (stepStart < sleepEnd) && (sleepStart < stepEnd)
+            }
+
+            if (overlappingSession != null) {
+                droppedSleepSteps++
+                println("[StepValidator] [DROP-SLEEP] Step (${step.startTime} | ${step.rawCount}) overlaps Sleep (${overlappingSession.startTime}-${overlappingSession.endTime})")
+            } else {
+                filteredSteps.add(step)
+            }
+        }
+        
+        println("[StepValidator] Sleep Filter Result -> Kept: ${filteredSteps.size} | Dropped: $droppedSleepSteps")
+        return filteredSteps
+    }
+
+    private suspend fun validatePhoneStepsWithActivity(phoneSteps: List<RawStep>): List<RawStep> {
+        val verifiedSteps = mutableListOf<RawStep>()
+        var droppedCount = 0
+
+        println("[StepValidator] Validating ${phoneSteps.size} Phone Steps against Activity Log...")
+
+        for (step in phoneSteps) {
             val midPoint = java.time.Instant.ofEpochMilli((step.startTime.toEpochMilli() + step.endTime.toEpochMilli()) / 2)
             
-            // Check for activity within +/- 2 minute (widened window)
-            // If the app was killed, we might have gaps.
-            val closestActivity = activityLogRepository.getActivityClosestTo(midPoint, java.time.Duration.ofMinutes(2))
+            // Check Activity Context
+            val activity = activityLogRepository.getActivityClosestTo(midPoint, java.time.Duration.ofMinutes(2))
+            
+            val activityType = activity?.type?.name ?: "NULL"
+            val activityConf = activity?.confidence ?: 0
+            val activityTime = activity?.timestamp
 
-            if (closestActivity != null) {
-                val isGhost = when {
-                    // TILTING: Always discard
-                    closestActivity.type == UserActivityType.TILTING -> {
-                         println("[StepValidator] Ghost Step Detected! (TILTING) at ${step.startTime}")
-                         true
-                    }
-                    
-                    // STILL > 60%: Discard (Lowered threshold from 70%)
-                    closestActivity.type == UserActivityType.STILL && closestActivity.confidence > 60 -> {
-                        println("[StepValidator] Ghost Step Detected! (STILL ${closestActivity.confidence}%) at ${step.startTime}")
-                        true
-                    }
-                    
-                    // UNKNOWN & Low Count: Discard
-                    closestActivity.type == UserActivityType.UNKNOWN && step.rawCount < 10 -> {
-                        println("[StepValidator] Ghost Step Detected! (UNKNOWN + Low Count) at ${step.startTime}")
-                        true
-                    }
-                    
-                    else -> false
-                }
+            val isValid = when (activity?.type) {
+                UserActivityType.WALKING,
+                UserActivityType.RUNNING -> true
+                else -> false
+            }
 
-                if (!isGhost) {
-                    validSteps.add(step)
-                }
+            if (isValid) {
+                verifiedSteps.add(step)
+                // println("[StepValidator] [KEEP] Step (${step.startTime}) | Activity: $activityType ($activityConf%) @ $activityTime")
             } else {
-                // NO ACTIVITY CONTEXT RULES
-                // Default to KEEPING the step if we have no evidence it's a ghost step.
-                // Previously this discarded data (Silent Data Killer).
-                validSteps.add(step) 
-                
-                if (step.rawCount > 100) {
-                     // Log suspicious high counts in void, but do not delete.
-                     println("[StepValidator] [WARNING] High Step Count (${step.rawCount}) without Context at ${step.startTime}")
-                }
+                droppedCount++
+                println("[StepValidator] [DROP-GHOST] Step (${step.startTime} | ${step.rawCount}) | Activity: $activityType ($activityConf%) @ $activityTime | Reason: Not Walking/Running")
             }
         }
-        return validSteps
-    }
 
-    private fun mergeSteps(phoneSteps: List<RawStep>, wearableSteps: List<RawStep>): List<RawStep> {
-        val result = mutableListOf<RawStep>()
-        
-        // 1. Prioritize Wearable: Always keep them
-        result.addAll(wearableSteps)
-
-        // 2. Filter Phone Steps
-        // Optimization: If wearable covers the whole timeline, we can skip all phone checks?
-        // But steps are discrete.
-        
-        for (phoneStep in phoneSteps) {
-            // Check if THIS phone step overlaps with ANY wearable step
-            // Enhanced Overlap: Add 1 second buffer to timestamps to catch near-misses
-            val overlapsWithWearable = wearableSteps.any { wearableStep ->
-                stepsOverlap(phoneStep, wearableStep)
-            }
-
-            if (!overlapsWithWearable) {
-                result.add(phoneStep)
-            } else {
-                // println("[StepValidator] Merge Conflict! Discarding Phone Step at ${phoneStep.startTime} due to Wearable overlap.")
-            }
-        }
-        
-        return result
-    }
-
-    private fun stepsOverlap(s1: RawStep, s2: RawStep): Boolean {
-        // Strict timestamp comparison matches exactly the intervals.
-        // If s1 (10:00-10:01) and s2 (10:00-10:01) -> Overlap.
-        // If s1 (10:00-10:01) and s2 (10:01-10:02) -> No Overlap (EndA == StartB)
-        
-        // We add a small buffer (e.g. 1 sec) to handle clock skew or alignment issues.
-        // s1 Start < s2 End + Buffer && s2 Start < s1 End + Buffer
-        
-        val buffer = 1000L // 1 second
-        val s1Start = s1.startTime.toEpochMilli()
-        val s1End = s1.endTime.toEpochMilli()
-        val s2Start = s2.startTime.toEpochMilli()
-        val s2End = s2.endTime.toEpochMilli()
-
-        return (s1Start < (s2End + buffer)) && (s2Start < (s1End + buffer))
+        println("[StepValidator] Phone Activity Check Result -> Kept: ${verifiedSteps.size} | Dropped: $droppedCount (Ghost Steps)")
+        return verifiedSteps
     }
 }
