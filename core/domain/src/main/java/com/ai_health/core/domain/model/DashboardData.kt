@@ -8,6 +8,10 @@ data class DashboardData(
     val distanceKm: Double = 0.0,
     val oxygenSaturation: Double = 0.0,
     
+    // Sync Info
+    val lastSyncTime: java.time.Instant? = null,
+    val sourcePackage: String? = null,
+    
     // History Data for Charts
     val stepsHistory: List<HealthMetricPoint> = emptyList(),
     val heartRateHistory: List<HealthMetricPoint> = emptyList(),

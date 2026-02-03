@@ -14,7 +14,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import com.ai_health.ui.util.SourceAppLauncher
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +54,20 @@ fun DashboardScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshData()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // We can expose onRefresh from VM
     val onRefresh = { viewModel.refreshData() }
@@ -73,6 +98,42 @@ fun DashboardScreen(
                         color = Color.White,
                         style = MaterialTheme.typography.headlineMedium
                     )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                         Text(
+                            text = state.lastSyncTimeFormatted.ifEmpty { "Nessun dato" },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray
+                        )
+
+                        val appName = remember(state.sourcePackage) {
+                            SourceAppLauncher.getAppName(context, state.sourcePackage)
+                        }
+
+                        OutlinedButton(
+                            onClick = { SourceAppLauncher.launchApp(context, state.sourcePackage) },
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF38BDF8)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFF38BDF8),
+                                containerColor = Color(0xFF1E293B) // Matching the card bg or transparent
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.OpenInNew,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sync via $appName")
+                        }
+                    }
                 }
 
                 // Griglia delle metriche

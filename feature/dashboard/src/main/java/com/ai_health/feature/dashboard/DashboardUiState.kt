@@ -11,6 +11,10 @@ data class DashboardUiState(
     val distanceFormatted: String = "0.00 km",
     val oxygenFormatted: String = "0.0 %",
     
+    // Sync Status
+    val lastSyncTimeFormatted: String = "",
+    val sourcePackage: String? = null,
+    
     // Charts Data
     val stepsHistory: List<ChartDataPoint> = emptyList(),
     val heartRateHistory: List<ChartDataPoint> = emptyList(),

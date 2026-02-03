@@ -71,4 +71,11 @@ interface HealthMetricDao {
 
     @Query("SELECT * FROM exercise_sessions WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getExercises(startTime: Instant): Flow<List<ExerciseSessionEntity>>
+
+    // --- LAST SYNC INFO ---
+    @Query("SELECT * FROM steps ORDER BY endTime DESC LIMIT 1")
+    fun getLastStepFlow(): Flow<StepsEntity?>
+
+    @Query("SELECT * FROM heart_rate ORDER BY time DESC LIMIT 1")
+    fun getLastHeartRateFlow(): Flow<HeartRateEntity?>
 }

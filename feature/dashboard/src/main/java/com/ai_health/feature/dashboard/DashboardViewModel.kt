@@ -12,7 +12,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.LocalDate
 import javax.inject.Inject
 import java.util.Locale
 import com.ai_health.ui.components.ChartDataPoint
@@ -42,6 +46,9 @@ class DashboardViewModel @Inject constructor(
                 caloriesFormatted = "${data.calories} kcal",
                 distanceFormatted = String.format(Locale.US, "%.2f km", data.distanceKm),
                 oxygenFormatted = String.format(Locale.US, "%.1f %%", data.oxygenSaturation),
+
+                lastSyncTimeFormatted = formatLastSyncTime(data.lastSyncTime),
+                sourcePackage = data.sourcePackage,
 
                 stepsHistory = data.stepsHistory.map { ChartDataPoint(it.timestamp, it.value) },
                 sleepHistory = data.sleepHistory.map { ChartDataPoint(it.timestamp, it.value) },
@@ -94,6 +101,25 @@ class DashboardViewModel @Inject constructor(
             } finally {
                 // Fondamentale: Spegne l'indicatore alla fine
                 savedStateHandle[KEY_IS_REFRESHING] = false
+            }
+        }
+    }
+
+    private fun formatLastSyncTime(instant: java.time.Instant?): String {
+        if (instant == null) return "Mai aggiornato"
+
+        val zoneId = ZoneId.systemDefault()
+        val dateTime = instant.atZone(zoneId)
+        val date = dateTime.toLocalDate()
+        val today = LocalDate.now(zoneId)
+        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+
+        return when (date) {
+            today -> "Dati aggiornati alle ${dateTime.format(timeFormatter)}"
+            today.minusDays(1) -> "Dati aggiornati a Ieri, ${dateTime.format(timeFormatter)}"
+            else -> {
+                val dateFormatter = DateTimeFormatter.ofPattern("dd/MM, HH:mm", Locale.getDefault())
+                "Dati aggiornati il ${dateTime.format(dateFormatter)}"
             }
         }
     }

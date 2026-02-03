@@ -22,4 +22,6 @@ interface HealthRepository {
     fun getOxygenHistory(startTime: Instant): Flow<List<OxygenSaturationRec>>
     fun getExerciseHistory(startTime: Instant): Flow<List<ExerciseSessionRec>>
     fun getBasalMetabolicRateHistory(startTime: Instant): Flow<List<BasalMetabolicRateRec>>
+
+    fun getLastSyncInfo(): Flow<Pair<Instant?, String?>>
 }

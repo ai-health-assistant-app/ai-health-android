@@ -52,10 +52,14 @@ class GetDashboardDataUseCase @Inject constructor(
         val distanceFlow = repository.getDistanceHistory(startOfToday)
         val oxygenFlow = repository.getOxygenHistory(startOfToday)
 
+
+        val syncInfoFlow = repository.getLastSyncInfo()
+
         return combine(
             combine(validatedStepsFlow, sleepFlow, heartFlow, ::Triple),
-            combine(caloriesFlow, distanceFlow, oxygenFlow, ::Triple)
-        ) { (validatedSteps, sleep, heart), (calories, distance, oxygen) ->
+            combine(caloriesFlow, distanceFlow, oxygenFlow, ::Triple),
+            syncInfoFlow
+        ) { (validatedSteps, sleep, heart), (calories, distance, oxygen), (lastSyncTime, sourcePackage) ->
 
             DashboardData(
                 // Use validated steps for total and history
@@ -66,6 +70,9 @@ class GetDashboardDataUseCase @Inject constructor(
                 calories = calories.sumOf { it.energyKilocalories }.toInt(),
                 distanceKm = distance.sumOf { it.distanceMeters } / 1000.0,
                 oxygenSaturation = if (oxygen.isNotEmpty()) oxygen.map { it.percentage }.average() else 0.0,
+
+                lastSyncTime = lastSyncTime,
+                sourcePackage = sourcePackage,
 
                 stepsHistory = validatedSteps.map { 
                     HealthMetricPoint(it.startTime.toEpochMilli(), it.effectiveCount.toDouble()) 

@@ -265,4 +265,32 @@ class HealthRepositoryImpl @Inject constructor(
              BasalMetabolicRateRec(it.source, it.energyKilocaloriesPerDay, it.time)
          } }
     }
+
+    override fun getLastSyncInfo(): Flow<Pair<Instant?, String?>> {
+        return kotlinx.coroutines.flow.combine(
+            healthDao.getLastStepFlow(),
+            healthDao.getLastHeartRateFlow()
+        ) { lastStep, lastHeart ->
+            val stepTime = lastStep?.endTime
+            val heartTime = lastHeart?.time
+
+            // Logic to determine the latest time safely
+            val latestTime = when {
+                stepTime != null && heartTime != null -> if (stepTime.isAfter(heartTime)) stepTime else heartTime
+                stepTime != null -> stepTime
+                heartTime != null -> heartTime
+                else -> null
+            }
+
+            // Determine the source based on which one is the latest
+            val source = when (latestTime) {
+                null -> null
+                stepTime -> lastStep?.source
+                heartTime -> lastHeart?.source
+                else -> null // Should not happen
+            }
+            
+            Pair(latestTime, source)
+        }
+    }
 }
