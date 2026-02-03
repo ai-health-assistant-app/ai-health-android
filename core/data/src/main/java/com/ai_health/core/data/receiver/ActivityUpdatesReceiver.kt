@@ -20,6 +20,9 @@ class ActivityUpdatesReceiver : BroadcastReceiver() {
     @Inject
     lateinit var repository: ActivityLogRepository
 
+    @Inject
+    lateinit var activityRecognitionManager: com.ai_health.core.data.manager.ActivityRecognitionManager
+
     override fun onReceive(context: Context, intent: Intent) {
         if (ActivityRecognitionResult.hasResult(intent)) {
             val result = ActivityRecognitionResult.extractResult(intent)
@@ -30,6 +33,9 @@ class ActivityUpdatesReceiver : BroadcastReceiver() {
                 val confidence = mostProbableActivity.confidence
                 
                 android.util.Log.d("ActivityUpdatesReceiver", "Detected activity: $activityType with confidence: $confidence")
+
+                // Operation Scalpel: Delegate to Manager for Smart Sleep / Dynamic intervals
+                activityRecognitionManager.handleActivityUpdate(mostProbableActivity.type, confidence)
 
                 // Use goAsync() to keep the receiver alive while performing invalidation/DB write
                 val pendingResult = goAsync()

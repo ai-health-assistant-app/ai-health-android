@@ -39,8 +39,20 @@ class ActivityRecognitionService : Service() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        android.util.Log.d("ServiceStartup", "Service: onDestroy called - cleaning up")
+        
+        // Operation Scalpel: Ensure we stop foreground state and remove notification
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        
+        // Ensure updates are removed (Leak Plug)
         activityRecognitionManager.stopListening()
+        
+        super.onDestroy()
     }
 
     private fun startForegroundService() {

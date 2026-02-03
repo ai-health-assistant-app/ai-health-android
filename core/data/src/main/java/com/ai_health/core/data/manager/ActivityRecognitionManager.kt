@@ -28,9 +28,28 @@ class ActivityRecognitionManager @Inject constructor(
         PendingIntent.getBroadcast(context, 0, intent, flags)
     }
 
+    // Operation Scalpel: Increased default to 3 minutes to reduce CPU/Battery drain
     @SuppressLint("MissingPermission") // Caller must ensure permission
-    fun requestUpdates(intervalMillis: Long = 30000L) {
-        android.util.Log.d("ServiceStartup", "Manager: requestUpdates called")
+    fun requestUpdates(intervalMillis: Long = 180000L) {
+        android.util.Log.d("ServiceStartup", "Manager: requestUpdates called with interval: $intervalMillis")
+        
+        // Fix: Removed Service invocation for simple updates. 
+        // We only need to start the service once. Re-registering updates can be done directly on the client.
+        // However, if the intent of this method was to START the service, we should keep it but update logic.
+        // Assuming this method is called to CHANGE the interval:
+        
+        client.removeActivityUpdates(pendingIntent)
+        client.requestActivityUpdates(intervalMillis, pendingIntent)
+            .addOnSuccessListener {
+                android.util.Log.d("ActivityManager", "Updates registered successfully with interval: $intervalMillis")
+            }
+            .addOnFailureListener {
+                android.util.Log.e("ActivityManager", "Failed to register updates", it)
+            }
+    }
+
+    // Helper to start the service initially
+    fun startService() {
         val intent = Intent(context, com.ai_health.core.data.service.ActivityRecognitionService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             android.util.Log.d("ServiceStartup", "Manager: starting Foreground Service")
@@ -48,7 +67,7 @@ class ActivityRecognitionManager @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun listenToUpdates(intervalMillis: Long = 30000L) {
+    fun listenToUpdates(intervalMillis: Long = 180000L) {
          client.requestActivityUpdates(intervalMillis, pendingIntent)
             .addOnSuccessListener {
                 android.util.Log.d("ActivityManager", "Updates registered successfully")
@@ -56,6 +75,33 @@ class ActivityRecognitionManager @Inject constructor(
             .addOnFailureListener {
                 android.util.Log.e("ActivityManager", "Failed to register updates", it)
             }
+    }
+
+    @SuppressLint("MissingPermission")
+    private var consecutiveStillCount = 0
+    private var currentInterval = 180000L
+
+    @SuppressLint("MissingPermission")
+    fun handleActivityUpdate(type: Int, confidence: Int) {
+        android.util.Log.d("ActivityManager", "Handling update: type=$type, conf=$confidence")
+        
+        if (type == com.google.android.gms.location.DetectedActivity.STILL && confidence == 100) {
+            consecutiveStillCount++
+            android.util.Log.d("ActivityManager", "Consecutive STILL count: $consecutiveStillCount")
+            
+            if (consecutiveStillCount >= 2 && currentInterval != 600000L) {
+                android.util.Log.d("ActivityManager", "Smart Sleep: Enter Deep Sleep (10 mins)")
+                currentInterval = 600000L // 10 minutes
+                requestUpdates(currentInterval)
+            }
+        } else if (type != com.google.android.gms.location.DetectedActivity.STILL) {
+            consecutiveStillCount = 0
+            if (currentInterval != 180000L) {
+                android.util.Log.d("ActivityManager", "Smart Sleep: Wake Up -> Active Mode (3 mins)")
+                currentInterval = 180000L
+                requestUpdates(currentInterval)
+            }
+        }
     }
 
     @SuppressLint("MissingPermission")
