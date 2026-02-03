@@ -45,6 +45,9 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: android.content.Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                // Fix: Double-checked locking requires checking INSTANCE again inside synchronized block
+                INSTANCE?.let { return it }
+                
                 val instance = androidx.room.Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
