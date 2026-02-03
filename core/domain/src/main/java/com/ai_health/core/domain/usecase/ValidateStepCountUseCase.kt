@@ -38,7 +38,8 @@ class ValidateStepCountUseCase @Inject constructor(
         // Wearable steps are "Ground Truth" for the time periods they cover.
         // Any phone step overlapping with a Wearable interval is discarded.
         val mergedSteps = mergeSteps(cleanedPhoneSteps, wearableSteps)
-        println("[StepValidator] Merging -> Total Final Steps: ${mergedSteps.size}")
+        val totalCount = mergedSteps.sumOf { it.rawCount }
+        println("[StepValidator] Merging -> Total Final Steps: ${mergedSteps.size} records (Total Count: $totalCount)")
 
         return mergedSteps.map { 
              ValidatedStep(

@@ -38,6 +38,10 @@ class ActivityRecognitionManager @Inject constructor(
         // However, if the intent of this method was to START the service, we should keep it but update logic.
         // Assuming this method is called to CHANGE the interval:
         
+        // Fix: Ensure Service is started to show Notification (Foreground)
+        // This was missing after refactor, causing "Missing Notification" issue.
+        startService()
+        
         client.removeActivityUpdates(pendingIntent)
         client.requestActivityUpdates(intervalMillis, pendingIntent)
             .addOnSuccessListener {
