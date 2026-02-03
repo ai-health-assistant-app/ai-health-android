@@ -55,10 +55,14 @@ abstract class AppDatabase : RoomDatabase() {
                         super.onCreate(db)
                         // Pre-populate data on creation
                         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                            com.ai_health.core.data.local.util.RoomPrepopulator.prepopulate(
-                                context.applicationContext,
-                                getDatabase(context.applicationContext)
-                            )
+                            // Fix: Use INSTANCE directly to avoid recursive getDatabase() call which might cause issues or deadlock risk.
+                            // INSTANCE is guaranteed to be set if we are in a DAO operation that triggered onCreate.
+                            INSTANCE?.let { instance ->
+                                com.ai_health.core.data.local.util.RoomPrepopulator.prepopulate(
+                                    context.applicationContext,
+                                    instance
+                                )
+                            }
                         }
                     }
                 })

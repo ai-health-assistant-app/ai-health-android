@@ -87,15 +87,14 @@ class ValidateStepCountUseCase @Inject constructor(
                 }
             } else {
                 // NO ACTIVITY CONTEXT RULES
-                // Previously: Accepted all.
-                // New Logic: Strict Reject for significant counts.
-                if (step.rawCount > 3) {
-                    println("[StepValidator] [DISCARD] No Activity Context at ${step.startTime} | Count: ${step.rawCount} - Suspected Ghost Step during 'Black Hole'.")
-                } else {
-                    // Keep very small counts (micro-movements)? No, cleaner to discard noise.
-                    // validSteps.add(step) 
+                // Default to KEEPING the step if we have no evidence it's a ghost step.
+                // Previously this discarded data (Silent Data Killer).
+                validSteps.add(step) 
+                
+                if (step.rawCount > 100) {
+                     // Log suspicious high counts in void, but do not delete.
+                     println("[StepValidator] [WARNING] High Step Count (${step.rawCount}) without Context at ${step.startTime}")
                 }
-                // Implicitly discarded.
             }
         }
         return validSteps

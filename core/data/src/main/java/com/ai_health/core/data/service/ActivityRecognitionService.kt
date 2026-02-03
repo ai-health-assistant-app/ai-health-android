@@ -57,7 +57,7 @@ class ActivityRecognitionService : Service() {
 
         val notification: Notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("AI Health Assistant")
-            .setContentText("Monitoring your activity to optimize step counting.")
+            .setContentText("Monitoring your activity to optimize your life!")
             .setSmallIcon(android.R.drawable.ic_dialog_info) 
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
