@@ -30,17 +30,36 @@ class ActivityRecognitionManager @Inject constructor(
 
     @SuppressLint("MissingPermission") // Caller must ensure permission
     fun requestUpdates(intervalMillis: Long = 30000L) {
-        client.requestActivityUpdates(intervalMillis, pendingIntent)
-            .addOnSuccessListener {
-                // updates requested successfully
-            }
-            .addOnFailureListener {
-                // failed to request updates
-            }
+        android.util.Log.d("ServiceStartup", "Manager: requestUpdates called")
+        val intent = Intent(context, com.ai_health.core.data.service.ActivityRecognitionService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.util.Log.d("ServiceStartup", "Manager: starting Foreground Service")
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
     }
 
     @SuppressLint("MissingPermission")
     fun removeUpdates() {
+        val intent = Intent(context, com.ai_health.core.data.service.ActivityRecognitionService::class.java)
+        context.stopService(intent)
+        stopListening()
+    }
+
+    @SuppressLint("MissingPermission")
+    fun listenToUpdates(intervalMillis: Long = 30000L) {
+         client.requestActivityUpdates(intervalMillis, pendingIntent)
+            .addOnSuccessListener {
+                android.util.Log.d("ActivityManager", "Updates registered successfully")
+            }
+            .addOnFailureListener {
+                android.util.Log.e("ActivityManager", "Failed to register updates", it)
+            }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun stopListening() {
         client.removeActivityUpdates(pendingIntent)
     }
 }

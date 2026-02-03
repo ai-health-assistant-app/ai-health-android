@@ -54,10 +54,14 @@ class MainActivity : ComponentActivity() {
                     android.Manifest.permission.ACTIVITY_RECOGNITION
                 ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             ) {
+                android.util.Log.d("ServiceStartup", "Permission granted. Requesting updates...")
                 activityRecognitionManager.requestUpdates()
+            } else {
+                android.util.Log.e("ServiceStartup", "Activity Recognition permission NOT granted.")
             }
         } else {
             // Pre-Q (API 29), permission is not runtime, so just request
+            android.util.Log.d("ServiceStartup", "Starting service (Pre-Q)...")
             activityRecognitionManager.requestUpdates()
         }
     }

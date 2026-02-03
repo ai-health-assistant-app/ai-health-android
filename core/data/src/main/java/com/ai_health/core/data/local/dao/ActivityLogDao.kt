@@ -13,6 +13,9 @@ interface ActivityLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertActivityLog(activity: UserActivityEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertActivityLogs(activities: List<UserActivityEntity>)
+
     // Fetch activities within a range.
     // We fetch a bit more context if needed, but strict range is fine for now.
     @Query("""

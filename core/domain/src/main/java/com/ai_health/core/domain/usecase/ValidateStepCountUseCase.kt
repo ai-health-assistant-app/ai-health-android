@@ -2,6 +2,7 @@ package com.ai_health.core.domain.usecase
 
 import com.ai_health.core.domain.model.RawStep
 import com.ai_health.core.domain.model.StepSource
+import com.ai_health.core.domain.model.UserActivity
 import com.ai_health.core.domain.model.UserActivityType
 import com.ai_health.core.domain.model.ValidatedStep
 import com.ai_health.core.domain.repository.ActivityLogRepository
@@ -16,92 +17,131 @@ class ValidateStepCountUseCase @Inject constructor(
 
     /**
      * Validates a list of raw steps by:
-     * 1. Deduplicating overlapping steps (Wearable > Phone).
-     * 2. filtering out steps that occurred during invalid activities (STILL, TILTING).
+     * 1. Separating steps by Source (Phone vs Wearable).
+     * 2. Cleaning Phone steps using aggressive Ghost Step detection.
+     * 3. Merging: Discarding Phone steps that overlap with ANY Wearable data.
      */
     suspend operator fun invoke(rawSteps: List<RawStep>): List<ValidatedStep> {
+        println("[StepValidator] START Analysis - Raw Steps: ${rawSteps.size}")
         if (rawSteps.isEmpty()) return emptyList()
 
-        // Phase 1: Deduplication
-        val totalRaw = rawSteps.sumOf { it.rawCount }
-        println("StepValidator: [START] Processing ${rawSteps.size} raw records. Total Raw Steps: $totalRaw")
+        // 1. Separate Sources
+        val phoneSteps = rawSteps.filter { it.source == StepSource.PHONE }
+        val wearableSteps = rawSteps.filter { it.source == StepSource.WEARABLE }
+        println("[StepValidator] Sources -> Phone: ${phoneSteps.size}, Wearable: ${wearableSteps.size}")
 
-        val deduplicatedSteps = deduplicateSteps(rawSteps)
-        val totalDedup = deduplicatedSteps.sumOf { it.rawCount }
-        println("StepValidator: [PHASE 1] After Deduplication. Dedup Steps: $totalDedup (Diff: ${totalDedup - totalRaw})")
+        // 2. Clean Phone Steps (Ghost Step Logic)
+        val cleanedPhoneSteps = cleanPhoneSteps(phoneSteps)
+        println("[StepValidator] Phone Cleaning -> Removed ${phoneSteps.size - cleanedPhoneSteps.size} ghost steps. Remaining: ${cleanedPhoneSteps.size}")
 
-        // Phase 2: Ghost Step Validation
-        val result = validateGhostSteps(deduplicatedSteps)
-        val totalFinal = result.sumOf { it.effectiveCount }
-        println("StepValidator: [PHASE 2] After Ghost Check. Final Effective Steps: $totalFinal (Diff: ${totalFinal - totalDedup})")
-        println("StepValidator: [COMPLETE] Total Removed: ${totalRaw - totalFinal}")
+        // 3. Merge Logic (Temporal Prioritization)
+        // Wearable steps are "Ground Truth" for the time periods they cover.
+        // Any phone step overlapping with a Wearable interval is discarded.
+        val mergedSteps = mergeSteps(cleanedPhoneSteps, wearableSteps)
+        println("[StepValidator] Merging -> Total Final Steps: ${mergedSteps.size}")
+
+        return mergedSteps.map { 
+             ValidatedStep(
+                startTime = it.startTime,
+                endTime = it.endTime,
+                effectiveCount = it.rawCount
+            )
+        }.sortedBy { it.startTime }
+    }
+
+    private suspend fun cleanPhoneSteps(steps: List<RawStep>): List<RawStep> {
+        val validSteps = mutableListOf<RawStep>()
+
+        for (step in steps) {
+            val midPoint = java.time.Instant.ofEpochMilli((step.startTime.toEpochMilli() + step.endTime.toEpochMilli()) / 2)
+            
+            // Check for activity within +/- 2 minute (widened window)
+            // If the app was killed, we might have gaps.
+            val closestActivity = activityLogRepository.getActivityClosestTo(midPoint, java.time.Duration.ofMinutes(2))
+
+            if (closestActivity != null) {
+                val isGhost = when {
+                    // TILTING: Always discard
+                    closestActivity.type == UserActivityType.TILTING -> {
+                         println("[StepValidator] Ghost Step Detected! (TILTING) at ${step.startTime}")
+                         true
+                    }
+                    
+                    // STILL > 60%: Discard (Lowered threshold from 70%)
+                    closestActivity.type == UserActivityType.STILL && closestActivity.confidence > 60 -> {
+                        println("[StepValidator] Ghost Step Detected! (STILL ${closestActivity.confidence}%) at ${step.startTime}")
+                        true
+                    }
+                    
+                    // UNKNOWN & Low Count: Discard
+                    closestActivity.type == UserActivityType.UNKNOWN && step.rawCount < 10 -> {
+                        println("[StepValidator] Ghost Step Detected! (UNKNOWN + Low Count) at ${step.startTime}")
+                        true
+                    }
+                    
+                    else -> false
+                }
+
+                if (!isGhost) {
+                    validSteps.add(step)
+                }
+            } else {
+                // NO ACTIVITY CONTEXT RULES
+                // Previously: Accepted all.
+                // New Logic: Strict Reject for significant counts.
+                if (step.rawCount > 3) {
+                    println("[StepValidator] [DISCARD] No Activity Context at ${step.startTime} | Count: ${step.rawCount} - Suspected Ghost Step during 'Black Hole'.")
+                } else {
+                    // Keep very small counts (micro-movements)? No, cleaner to discard noise.
+                    // validSteps.add(step) 
+                }
+                // Implicitly discarded.
+            }
+        }
+        return validSteps
+    }
+
+    private fun mergeSteps(phoneSteps: List<RawStep>, wearableSteps: List<RawStep>): List<RawStep> {
+        val result = mutableListOf<RawStep>()
+        
+        // 1. Prioritize Wearable: Always keep them
+        result.addAll(wearableSteps)
+
+        // 2. Filter Phone Steps
+        // Optimization: If wearable covers the whole timeline, we can skip all phone checks?
+        // But steps are discrete.
+        
+        for (phoneStep in phoneSteps) {
+            // Check if THIS phone step overlaps with ANY wearable step
+            // Enhanced Overlap: Add 1 second buffer to timestamps to catch near-misses
+            val overlapsWithWearable = wearableSteps.any { wearableStep ->
+                stepsOverlap(phoneStep, wearableStep)
+            }
+
+            if (!overlapsWithWearable) {
+                result.add(phoneStep)
+            } else {
+                // println("[StepValidator] Merge Conflict! Discarding Phone Step at ${phoneStep.startTime} due to Wearable overlap.")
+            }
+        }
         
         return result
     }
 
-    private fun deduplicateSteps(steps: List<RawStep>): List<RawStep> {
-        val sortedSteps = steps.sortedBy { it.startTime }
-        val mergedSteps = mutableListOf<RawStep>()
-        
-        val wearableSteps = sortedSteps.filter { it.source == StepSource.WEARABLE }
-        val phoneSteps = sortedSteps.filter { it.source == StepSource.PHONE }
-
-        // Wearable steps are always accepted in deduplication phase
-        wearableSteps.forEach { 
-             println("StepValidator: [DEDUP] Processing step at ${it.startTime} (Source: ${it.source}, Count: ${it.rawCount}) -> ACCEPTED (Wearable priority)")
-        }
-        mergedSteps.addAll(wearableSteps)
-
-        // Process Phone steps
-        for (phoneStep in phoneSteps) {
-            val conflictingWearable = wearableSteps.firstOrNull { wearableStep ->
-                 stepsOverlap(phoneStep, wearableStep)
-            }
-            
-            if (conflictingWearable != null) {
-                println("StepValidator: [DEDUP] Processing step at ${phoneStep.startTime} (Source: ${phoneStep.source}, Count: ${phoneStep.rawCount}) -> DISCARDED (Overlaps with WEARABLE at ${conflictingWearable.startTime})")
-            } else {
-                println("StepValidator: [DEDUP] Processing step at ${phoneStep.startTime} (Source: ${phoneStep.source}, Count: ${phoneStep.rawCount}) -> ACCEPTED (No overlap)")
-                mergedSteps.add(phoneStep)
-            }
-        }
-        
-        return mergedSteps.sortedBy { it.startTime }
-    }
-
-    private suspend fun validateGhostSteps(steps: List<RawStep>): List<ValidatedStep> {
-        val validatedSteps = mutableListOf<ValidatedStep>()
-        
-        for (step in steps) {
-            val dominantActivity = activityLogRepository.getDominantActivity(step.startTime, step.endTime)
-            
-            val isValid = when (dominantActivity) {
-                UserActivityType.STILL, UserActivityType.TILTING -> false
-                else -> true
-            }
-
-            if (!isValid) {
-                 println("StepValidator: [GHOST] Validating step at ${step.startTime} (Source: ${step.source}, Count: ${step.rawCount}) -> GHOST (Activity: $dominantActivity) -> Counted as 0")
-            } else {
-                 println("StepValidator: [GHOST] Validating step at ${step.startTime} (Source: ${step.source}, Count: ${step.rawCount}) -> VALID (Activity: $dominantActivity) -> Counted as ${step.rawCount}")
-            }
-
-            val effectiveCount = if (isValid) step.rawCount else 0L
-            
-            validatedSteps.add(
-                ValidatedStep(
-                    startTime = step.startTime,
-                    endTime = step.endTime,
-                    effectiveCount = effectiveCount
-                )
-            )
-        }
-        
-        return validatedSteps
-    }
-
     private fun stepsOverlap(s1: RawStep, s2: RawStep): Boolean {
-        // Overlap logic: StartA < EndB && StartB < EndA
-        return s1.startTime.isBefore(s2.endTime) && s2.startTime.isBefore(s1.endTime)
+        // Strict timestamp comparison matches exactly the intervals.
+        // If s1 (10:00-10:01) and s2 (10:00-10:01) -> Overlap.
+        // If s1 (10:00-10:01) and s2 (10:01-10:02) -> No Overlap (EndA == StartB)
+        
+        // We add a small buffer (e.g. 1 sec) to handle clock skew or alignment issues.
+        // s1 Start < s2 End + Buffer && s2 Start < s1 End + Buffer
+        
+        val buffer = 1000L // 1 second
+        val s1Start = s1.startTime.toEpochMilli()
+        val s1End = s1.endTime.toEpochMilli()
+        val s2Start = s2.startTime.toEpochMilli()
+        val s2End = s2.endTime.toEpochMilli()
+
+        return (s1Start < (s2End + buffer)) && (s2Start < (s1End + buffer))
     }
 }

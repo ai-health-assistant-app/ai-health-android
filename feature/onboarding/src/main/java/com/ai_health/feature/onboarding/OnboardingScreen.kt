@@ -76,6 +76,10 @@ fun OnboardingScreen(
     ) { isGranted ->
         viewModel.checkPermissions()
         if (isGranted) {
+            // Fix: Explicitly notify ViewModel to trigger Service start logic
+            val currentStep = uiState.steps[pagerState.currentPage]
+            viewModel.updatePermissionStatus(currentStep, PermissionStatus.Granted)
+            
             scope.launch {
                 if (pagerState.currentPage < uiState.steps.size - 1) {
                     pagerState.animateScrollToPage(pagerState.currentPage + 1)

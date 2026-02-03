@@ -178,7 +178,10 @@ class OnboardingViewModel @Inject constructor(
         
         // If Activity Recognition is granted, start updates immediately
         if (step is OnboardingStep.ActivityRecognition && status == PermissionStatus.Granted) {
+             android.util.Log.d("ServiceStartup", "Onboarding: ActivityRecognition granted. Starting service...")
              startActivityRecognition()
+        } else {
+             android.util.Log.d("ServiceStartup", "Onboarding: Step=$step Status=$status")
         }
     }
 
@@ -186,7 +189,7 @@ class OnboardingViewModel @Inject constructor(
         try {
              activityRecognitionManager.requestUpdates()
         } catch (e: Exception) {
-            // Ignore if fails silently
+            android.util.Log.e("ServiceStartup", "Onboarding: Failed to start service", e)
         }
     }
 }

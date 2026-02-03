@@ -15,6 +15,7 @@ import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.SleepSessionEntity
 import com.ai_health.core.data.local.entity.SleepStageEntity
 import com.ai_health.core.data.local.entity.StepsEntity
+import kotlinx.coroutines.launch
 
 @Database(
     entities = [
@@ -49,7 +50,19 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "health_database"
                 )
-                .fallbackToDestructiveMigration()
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        // Pre-populate data on creation
+                        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                            com.ai_health.core.data.local.util.RoomPrepopulator.prepopulate(
+                                context.applicationContext,
+                                getDatabase(context.applicationContext)
+                            )
+                        }
+                    }
+                })
+                // .fallbackToDestructiveMigration() // DISABLED to prevent data loss on schema change without migration
                 .build()
                 INSTANCE = instance
                 instance

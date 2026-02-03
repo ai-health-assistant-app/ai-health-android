@@ -1,5 +1,6 @@
 package com.ai_health.core.domain.usecase
 
+import com.ai_health.core.domain.config.SourceConfig
 import com.ai_health.core.domain.model.DashboardData
 import com.ai_health.core.domain.model.HealthMetricPoint
 import com.ai_health.core.domain.repository.HealthRepository
@@ -83,19 +84,16 @@ class GetDashboardDataUseCase @Inject constructor(
 
     private fun classifySource(packageName: String): com.ai_health.core.domain.model.StepSource {
         val lower = packageName.lowercase()
-        println("StepSourceDebug: Classifying '$packageName' (lower: '$lower')")
-        
-        // Rule 1: Specific keywords imply WEARABLE source
-        // This includes "com.xiaomi.wearable" which organizes data from Xiaomi devices
-        if (lower.contains("wearable") ||
-            lower.contains("watch") ||
-            lower.contains("garmin") ||
-            lower.contains("fitbit") ||
-            lower.contains("xiaomi")) {
-            return com.ai_health.core.domain.model.StepSource.WEARABLE
+
+        // Check if any of the defined wearable keywords are present in the package name.
+        val isWearable = SourceConfig.WEARABLE_KEYWORDS.any { keyword ->
+            lower.contains(keyword)
         }
 
-        // Rule 2: Google Fit and generic apps -> PHONE
-        return com.ai_health.core.domain.model.StepSource.PHONE
+        return if (isWearable) {
+            com.ai_health.core.domain.model.StepSource.WEARABLE
+        } else {
+            com.ai_health.core.domain.model.StepSource.PHONE
+        }
     }
 }
