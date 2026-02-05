@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ai_health.core.domain.usecase.GetDashboardDataUseCase
+import com.ai_health.core.domain.usecase.sleep.AnalyzeSleepQualityUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -21,6 +23,7 @@ import com.ai_health.core.domain.repository.HealthRepository
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
+    private val analyzeSleepQualityUseCase: AnalyzeSleepQualityUseCase,
     private val healthRepository: HealthRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -29,10 +32,23 @@ class DashboardViewModel @Inject constructor(
         private const val KEY_IS_REFRESHING = "is_refreshing"
     }
 
+    // Fetch sleep sessions for the last 30 days
+    private val thirtyDaysAgo = java.time.Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS)
+    private val sleepSessionsFlow = healthRepository.getSleepHistory(thirtyDaysAgo)
+
     val uiState: StateFlow<DashboardUiState> = getDashboardDataUseCase()
-        .map { data ->
+        .combine(sleepSessionsFlow) { data, sleepSessions ->
             val h = data.sleepMinutes / 60
             val m = data.sleepMinutes % 60
+            
+            // Reverse the list so newest sessions are first (index 0)
+            // This way: swipe right (increasing index) = older data, swipe left = newer data
+            val reversedSessions = sleepSessions.reversed()
+            
+            // Analyze each sleep session
+            val sleepAnalyses = reversedSessions.associate { session ->
+                session.id to analyzeSleepQualityUseCase(session)
+            }
 
             DashboardUiState(
                 isLoading = false,
@@ -48,7 +64,13 @@ class DashboardViewModel @Inject constructor(
                 heartRateHistory = data.heartRateHistory.map { ChartDataPoint(it.timestamp, it.value) },
                 caloriesHistory = data.caloriesHistory.map { ChartDataPoint(it.timestamp, it.value) },
                 distanceHistory = data.distanceHistory.map { ChartDataPoint(it.timestamp, it.value) },
-                oxygenHistory = data.oxygenHistory.map { ChartDataPoint(it.timestamp, it.value) }
+                oxygenHistory = data.oxygenHistory.map { ChartDataPoint(it.timestamp, it.value) },
+                
+                selectedSleepSession = data.latestSleepSession,
+                sleepQualityAnalysis = data.latestSleepSession?.let { analyzeSleepQualityUseCase(it) },
+                
+                sleepSessions = reversedSessions,
+                sleepAnalyses = sleepAnalyses
             )
         }
         .catch { e ->

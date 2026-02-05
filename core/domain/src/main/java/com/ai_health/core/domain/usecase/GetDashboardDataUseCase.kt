@@ -22,12 +22,24 @@ class GetDashboardDataUseCase @Inject constructor(
     private val repository: HealthRepository
 ) {
     operator fun invoke(): Flow<DashboardData> {
-        val startOfToday = LocalDate.now()
-            .atStartOfDay(ZoneId.systemDefault())
+        val today = LocalDate.now()
+        val zoneId = ZoneId.systemDefault()
+
+        // 1. Finestra per le metriche giornaliere (Passi, Calorie, ecc.) -> Da 00:00 di OGGI
+        val startOfToday = today.atStartOfDay(zoneId).toInstant()
+
+        // 2. Finestra per il Sonno -> Da 12:00 (Mezzogiorno) di IERI
+        // Questo cattura le dormite iniziate la sera prima (es. 4 Feb 23:00)
+        val startOfSleepWindow = today.minusDays(1)
+            .atTime(12, 0) 
+            .atZone(zoneId)
             .toInstant()
 
         val stepsFlow = repository.getStepsHistory(startOfToday)
-        val sleepFlow = repository.getSleepHistory(startOfToday)
+        
+        // USA startOfSleepWindow QUI:
+        val sleepFlow = repository.getSleepHistory(startOfSleepWindow)
+        
         val heartFlow = repository.getHeartRateHistory(startOfToday)
         val caloriesFlow = repository.getCaloriesHistory(startOfToday)
         val distanceFlow = repository.getDistanceHistory(startOfToday)
@@ -45,8 +57,12 @@ class GetDashboardDataUseCase @Inject constructor(
                 calories = calories.sumOf { it.energyKilocalories }.toInt(),
                 distanceKm = distance.sumOf { it.distanceMeters } / 1000.0,
                 oxygenSaturation = if (oxygen.isNotEmpty()) oxygen.map { it.percentage }.average() else 0.0,
+                
+                // Prendi la sessione più recente trovata nella finestra "allargata"
+                latestSleepSession = sleep.maxByOrNull { it.endTime },
 
                 stepsHistory = steps.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.count.toDouble()) },
+                // Nota: La history del sonno mostrerà anche l'inizio della sessione (ieri sera), che è corretto.
                 sleepHistory = sleep.map { 
                     val minutes = java.time.Duration.between(it.startTime, it.endTime).toMinutes().toDouble()
                     HealthMetricPoint(it.startTime.toEpochMilli(), minutes) 
@@ -59,27 +75,19 @@ class GetDashboardDataUseCase @Inject constructor(
         }
     }
 
+    // ... (Il resto delle funzioni private calculateSmartSteps e calculateTotalSleepMinutes rimangono uguali)
     private fun calculateSmartSteps(records: List<StepsRec>): Int {
         if (records.isEmpty()) return 0
-        
-        // Esempio naive di deduplica:
-        // Raggruppa per intervallo temporale (startTime + endTime)
-        // Se due app scrivono passi nello stesso esatto intervallo, prendi il max.
-        // Nota: Questo non risolve sovrapposizioni parziali (es. 14:00-14:15 vs 14:10-14:20)
         return records
             .groupBy { it.startTime to it.endTime }
-            .map { (_, duplicates) -> duplicates.maxOf { it.count } } // Prendi il valore più alto tra i duplicati
+            .map { (_, duplicates) -> duplicates.maxOf { it.count } }
             .sum()
             .toInt()
     }
 
     private fun calculateTotalSleepMinutes(sessions: List<SleepSessionRec>): Int {
         if (sessions.isEmpty()) return 0
-        
-        // 1. Sort by start time
         val sorted = sessions.sortedBy { it.startTime }
-        
-        // 2. Merge overlaps
         val merged = mutableListOf<Pair<Instant, Instant>>()
         var currentStart = sorted[0].startTime
         var currentEnd = sorted[0].endTime
@@ -87,20 +95,16 @@ class GetDashboardDataUseCase @Inject constructor(
         for (i in 1 until sorted.size) {
             val next = sorted[i]
             if (next.startTime.isBefore(currentEnd)) {
-                // Overlap: extend current end if next ends later
                 if (next.endTime.isAfter(currentEnd)) {
                     currentEnd = next.endTime
                 }
             } else {
-                // No overlap: push current, start new
                 merged.add(currentStart to currentEnd)
                 currentStart = next.startTime
                 currentEnd = next.endTime
             }
         }
         merged.add(currentStart to currentEnd)
-
-        // 3. Sum durations
         return merged.sumOf { (start, end) ->
             java.time.Duration.between(start, end).toMinutes()
         }.toInt()

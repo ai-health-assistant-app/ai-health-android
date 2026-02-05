@@ -65,10 +65,23 @@ fun NavGraphBuilder.dashboardGraph(
             else -> emptyList()
         }
         
-        DetailChartScreen(
-            metricType = type,
-            data = historyData,
-            onBack = onBack
-        )
+        
+
+        
+        if (type == "sleep" && state.sleepSessions.isNotEmpty()) {
+            SleepDetailScreen(
+                sessions = state.sleepSessions,
+                analyses = state.sleepAnalyses,
+                initialSessionId = state.selectedSleepSession?.id,
+                onBack = onBack
+            )
+        } else {
+            // History data for other charts
+            DetailChartScreen(
+                metricType = type,
+                data = historyData,
+                onBack = onBack
+            )
+        }
     }
 }

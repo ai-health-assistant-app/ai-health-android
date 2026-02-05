@@ -17,5 +17,13 @@ data class DashboardUiState(
     val caloriesHistory: List<ChartDataPoint> = emptyList(),
     val distanceHistory: List<ChartDataPoint> = emptyList(),
     val oxygenHistory: List<ChartDataPoint> = emptyList(),
-    val sleepHistory: List<ChartDataPoint> = emptyList()
+    val sleepHistory: List<ChartDataPoint> = emptyList(),
+    
+    // Sleep Detail Data
+    val selectedSleepSession: com.ai_health.core.domain.model.SleepSessionRec? = null,
+    val sleepQualityAnalysis: com.ai_health.core.domain.model.SleepQualityResult? = null,
+    
+    // Sleep History for Date Navigation
+    val sleepSessions: List<com.ai_health.core.domain.model.SleepSessionRec> = emptyList(),
+    val sleepAnalyses: Map<String, com.ai_health.core.domain.model.SleepQualityResult> = emptyMap()
 )
