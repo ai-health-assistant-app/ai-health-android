@@ -236,6 +236,40 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
+    // --- SYNC METHODS ---
+
+    suspend fun getChangesToken(): String? {
+        return try {
+            val request = androidx.health.connect.client.request.ChangesTokenRequest(
+                recordTypes = setOf(
+                    StepsRecord::class,
+                    HeartRateRecord::class,
+                    SleepSessionRecord::class,
+                    OxygenSaturationRecord::class,
+                    DistanceRecord::class,
+                    ActiveCaloriesBurnedRecord::class,
+                    BasalMetabolicRateRecord::class,
+                    ExerciseSessionRecord::class
+                )
+            )
+            healthConnectClient.getChangesToken(request)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting changes token", e)
+            null
+        }
+    }
+
+    suspend fun getChanges(token: String): androidx.health.connect.client.response.ChangesResponse? {
+        return try {
+            healthConnectClient.getChanges(token)
+        } catch (e: Exception) {
+            // Let the repository handle specific exceptions like "Expired Token"
+            // But we log it here.
+            Log.e(TAG, "Error getting changes", e)
+            throw e
+        }
+    }
+
     companion object {
         val permissions = setOf(
             HealthPermission.getReadPermission(StepsRecord::class),

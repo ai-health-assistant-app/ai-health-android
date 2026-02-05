@@ -30,17 +30,21 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Room
+    // --- Data Storage (Room & DataStore) ---
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.datastore.preferences)
 
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     
-    // Health Connect Client (If needed for types, but usually transitive or mapped in core:health)
-    // core:health exposes DTOs. core:data maps DTO -> Entity -> Domain.
-    // So core:data might not need health connect client directly if core:health encapsulates it fully.
-    // But let's assume core:health API is sufficient.
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+    
+    // Health Connect Client
+    implementation(libs.androidx.health.connect.client)
 }

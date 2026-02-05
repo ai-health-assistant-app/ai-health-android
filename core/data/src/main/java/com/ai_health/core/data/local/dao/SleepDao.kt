@@ -32,4 +32,7 @@ interface SleepDao {
         // The stages passed here should already have sleepSessionId set correctly.
         insertStages(stages)
     }
+
+    @Query("DELETE FROM sleep_sessions WHERE id = :id")
+    suspend fun deleteSessionById(id: String)
 }

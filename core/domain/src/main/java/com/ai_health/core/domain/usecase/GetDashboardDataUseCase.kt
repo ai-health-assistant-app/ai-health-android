@@ -39,8 +39,8 @@ class GetDashboardDataUseCase @Inject constructor(
         ) { (steps, sleep, heart), (calories, distance, oxygen) ->
             
             DashboardData(
-                steps = steps.sumOf { it.count }.toInt(),
-                sleepMinutes = sleep.sumOf { java.time.Duration.between(it.startTime, it.endTime).toMinutes() }.toInt(),
+                steps = calculateSmartSteps(steps),
+                sleepMinutes = calculateTotalSleepMinutes(sleep),
                 avgHeartRate = if (heart.isNotEmpty()) heart.map { it.beatsPerMinute }.average().toInt() else 0,
                 calories = calories.sumOf { it.energyKilocalories }.toInt(),
                 distanceKm = distance.sumOf { it.distanceMeters } / 1000.0,
@@ -57,5 +57,52 @@ class GetDashboardDataUseCase @Inject constructor(
                 oxygenHistory = oxygen.map { HealthMetricPoint(it.time.toEpochMilli(), it.percentage) }
             )
         }
+    }
+
+    private fun calculateSmartSteps(records: List<StepsRec>): Int {
+        if (records.isEmpty()) return 0
+        
+        // Esempio naive di deduplica:
+        // Raggruppa per intervallo temporale (startTime + endTime)
+        // Se due app scrivono passi nello stesso esatto intervallo, prendi il max.
+        // Nota: Questo non risolve sovrapposizioni parziali (es. 14:00-14:15 vs 14:10-14:20)
+        return records
+            .groupBy { it.startTime to it.endTime }
+            .map { (_, duplicates) -> duplicates.maxOf { it.count } } // Prendi il valore più alto tra i duplicati
+            .sum()
+            .toInt()
+    }
+
+    private fun calculateTotalSleepMinutes(sessions: List<SleepSessionRec>): Int {
+        if (sessions.isEmpty()) return 0
+        
+        // 1. Sort by start time
+        val sorted = sessions.sortedBy { it.startTime }
+        
+        // 2. Merge overlaps
+        val merged = mutableListOf<Pair<Instant, Instant>>()
+        var currentStart = sorted[0].startTime
+        var currentEnd = sorted[0].endTime
+
+        for (i in 1 until sorted.size) {
+            val next = sorted[i]
+            if (next.startTime.isBefore(currentEnd)) {
+                // Overlap: extend current end if next ends later
+                if (next.endTime.isAfter(currentEnd)) {
+                    currentEnd = next.endTime
+                }
+            } else {
+                // No overlap: push current, start new
+                merged.add(currentStart to currentEnd)
+                currentStart = next.startTime
+                currentEnd = next.endTime
+            }
+        }
+        merged.add(currentStart to currentEnd)
+
+        // 3. Sum durations
+        return merged.sumOf { (start, end) ->
+            java.time.Duration.between(start, end).toMinutes()
+        }.toInt()
     }
 }

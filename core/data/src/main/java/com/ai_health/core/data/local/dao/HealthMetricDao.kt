@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
@@ -71,4 +72,41 @@ interface HealthMetricDao {
 
     @Query("SELECT * FROM exercise_sessions WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getExercises(startTime: Instant): Flow<List<ExerciseSessionEntity>>
+
+    // --- HELPER METHODS ---
+
+    @Query("SELECT COUNT(*) FROM steps WHERE startTime >= :start AND startTime < :end")
+    suspend fun getStepsCountForIntervall(start: Instant, end: Instant): Int
+
+    @Transaction
+    suspend fun deleteRecordById(id: String) {
+        deleteStepById(id)
+        deleteHeartRateById(id)
+        deleteCaloriesById(id)
+        deleteDistanceById(id)
+        deleteOxygenById(id)
+        deleteExerciseById(id)
+        deleteBmrById(id)
+    }
+
+    @Query("DELETE FROM steps WHERE id = :id")
+    suspend fun deleteStepById(id: String)
+
+    @Query("DELETE FROM heart_rate WHERE id = :id")
+    suspend fun deleteHeartRateById(id: String)
+
+    @Query("DELETE FROM calories WHERE id = :id")
+    suspend fun deleteCaloriesById(id: String)
+
+    @Query("DELETE FROM distance WHERE id = :id")
+    suspend fun deleteDistanceById(id: String)
+
+    @Query("DELETE FROM oxygen_saturation WHERE id = :id")
+    suspend fun deleteOxygenById(id: String)
+
+    @Query("DELETE FROM exercise_sessions WHERE id = :id")
+    suspend fun deleteExerciseById(id: String)
+
+    @Query("DELETE FROM basal_metabolic_rate WHERE id = :id")
+    suspend fun deleteBmrById(id: String)
 }
