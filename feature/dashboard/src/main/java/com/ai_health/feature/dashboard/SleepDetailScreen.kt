@@ -351,7 +351,7 @@ fun StageStatCard(
     color: Color
 ) {
     val hours = duration.toHours()
-    val minutes = duration.toMinutesPart()
+    val minutes = duration.toMinutes() % 60
     val timeStr = "${hours}h ${minutes}m"
 
     Card(
