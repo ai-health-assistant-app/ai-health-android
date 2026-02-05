@@ -28,7 +28,7 @@ import com.ai_health.core.data.local.entity.StepsEntity
         SleepSessionEntity::class,
         SleepStageEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

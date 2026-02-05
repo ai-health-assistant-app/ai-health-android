@@ -65,6 +65,7 @@ class HealthConnectManager(private val context: Context) {
             )
             response.records.map { record ->
                 RawStep(
+                    id = record.metadata.id,
                     count = record.count,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
@@ -88,6 +89,7 @@ class HealthConnectManager(private val context: Context) {
                 } else 0.0
 
                 RawHeartRate(
+                    id = record.metadata.id,
                     bpm = avgBpm,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
@@ -109,6 +111,7 @@ class HealthConnectManager(private val context: Context) {
                 val durationMin = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
 
                 RawSleep(
+                    id = record.metadata.id,
                     durationMinutes = durationMin,
                     stage = 0, 
                     startTime = record.startTime.toEpochMilli(),
@@ -136,6 +139,7 @@ class HealthConnectManager(private val context: Context) {
             )
             response.records.map { record ->
                 RawOxygen(
+                    id = record.metadata.id,
                     percentage = record.percentage.value,
                     startTime = record.time.toEpochMilli(), 
                     endTime = record.time.toEpochMilli(),
@@ -155,6 +159,7 @@ class HealthConnectManager(private val context: Context) {
             )
             response.records.map { record ->
                 RawDistance(
+                    id = record.metadata.id,
                     distanceMeters = record.distance.inMeters,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
@@ -174,6 +179,7 @@ class HealthConnectManager(private val context: Context) {
             )
             response.records.map { record ->
                 RawCalories(
+                    id = record.metadata.id,
                     kilocalories = record.energy.inKilocalories,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
@@ -193,6 +199,7 @@ class HealthConnectManager(private val context: Context) {
             )
             response.records.map { record ->
                 RawBMR(
+                    id = record.metadata.id,
                     kcalPerDay = record.basalMetabolicRate.inKilocaloriesPerDay,
                     startTime = record.time.toEpochMilli(), 
                     endTime = record.time.toEpochMilli(),
@@ -213,6 +220,7 @@ class HealthConnectManager(private val context: Context) {
             response.records.map { record ->
                 val duration = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble()
                 RawExercise(
+                    id = record.metadata.id,
                     type = "Exercise_${record.exerciseType}", 
                     durationMinutes = duration,
                     title = record.title,

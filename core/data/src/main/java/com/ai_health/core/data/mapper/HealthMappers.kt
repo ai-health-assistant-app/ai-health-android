@@ -40,7 +40,7 @@ object HealthMappers {
     // --- Heart Rate ---
     fun HeartRateRec.toEntity(): HeartRateEntity {
         return HeartRateEntity(
-            id = generateId("HEART_RATE", this.time),
+            id = this.id,
             beatsPerMinute = this.beatsPerMinute,
             time = this.time,
             source = this.source
@@ -49,6 +49,7 @@ object HealthMappers {
 
     fun HeartRateEntity.toDomain(): HeartRateRec {
         return HeartRateRec(
+            id = this.id,
             beatsPerMinute = this.beatsPerMinute,
             time = this.time,
             source = this.source
@@ -58,7 +59,7 @@ object HealthMappers {
     // --- Steps ---
     fun StepsRec.toEntity(): StepsEntity {
         return StepsEntity(
-            id = generateId("STEPS", this.startTime),
+            id = this.id,
             count = this.count,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -68,6 +69,7 @@ object HealthMappers {
 
     fun StepsEntity.toDomain(): StepsRec {
         return StepsRec(
+            id = this.id,
             count = this.count,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -78,7 +80,7 @@ object HealthMappers {
     // --- Calories ---
     fun CaloriesRec.toEntity(): CaloriesEntity {
         return CaloriesEntity(
-            id = generateId("CALORIES", this.startTime),
+            id = this.id,
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -88,6 +90,7 @@ object HealthMappers {
 
     fun CaloriesEntity.toDomain(): CaloriesRec {
         return CaloriesRec(
+            id = this.id,
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -98,7 +101,7 @@ object HealthMappers {
     // --- Distance ---
     fun DistanceRec.toEntity(): DistanceEntity {
         return DistanceEntity(
-            id = generateId("DISTANCE", this.startTime),
+            id = this.id,
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -108,6 +111,7 @@ object HealthMappers {
 
     fun DistanceEntity.toDomain(): DistanceRec {
         return DistanceRec(
+            id = this.id,
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
             endTime = this.endTime,
@@ -118,7 +122,7 @@ object HealthMappers {
     // --- Oxygen ---
     fun OxygenSaturationRec.toEntity(): OxygenSaturationEntity {
         return OxygenSaturationEntity(
-            id = generateId("OXYGEN", this.time),
+            id = this.id,
             percentage = this.percentage,
             time = this.time,
             source = this.source
@@ -127,6 +131,7 @@ object HealthMappers {
 
     fun OxygenSaturationEntity.toDomain(): OxygenSaturationRec {
         return OxygenSaturationRec(
+            id = this.id,
             percentage = this.percentage,
             time = this.time,
             source = this.source
@@ -136,7 +141,7 @@ object HealthMappers {
     // --- Exercise ---
     fun ExerciseSessionRec.toEntity(): ExerciseSessionEntity {
         return ExerciseSessionEntity(
-            id = generateId("EXERCISE", this.startTime),
+            id = this.id,
             exerciseType = this.exerciseType,
             title = this.title,
             notes = this.notes,
@@ -148,6 +153,7 @@ object HealthMappers {
 
     fun ExerciseSessionEntity.toDomain(): ExerciseSessionRec {
         return ExerciseSessionRec(
+            id = this.id,
             exerciseType = this.exerciseType,
             title = this.title,
             notes = this.notes,
@@ -160,7 +166,7 @@ object HealthMappers {
     // --- Sleep ---
     fun SleepSessionRec.toEntity(): SleepSessionEntity {
         return SleepSessionEntity(
-            id = generateId("SLEEP_SESSION", this.startTime),
+            id = this.id,
             title = this.title,
             notes = this.notes,
             startTime = this.startTime,
@@ -169,10 +175,11 @@ object HealthMappers {
         )
     }
 
-    fun SleepStageRec.toEntity(sessionId: String): SleepStageEntity {
+    fun SleepStageRec.toEntity(sessionId: String, source: String): SleepStageEntity {
         return SleepStageEntity(
-            id = generateId("SLEEP_STAGE", this.startTime), // Unique per stage time
+            id = this.id,
             sleepSessionId = sessionId,
+            source = source,
             stage = this.stage,
             startTime = this.startTime,
             endTime = this.endTime
@@ -181,6 +188,7 @@ object HealthMappers {
 
     fun SleepSessionWithStages.toDomain(): SleepSessionRec {
         return SleepSessionRec(
+            id = this.session.id,
             title = this.session.title,
             notes = this.session.notes,
             startTime = this.session.startTime,
@@ -192,9 +200,30 @@ object HealthMappers {
 
     fun SleepStageEntity.toDomain(): SleepStageRec {
         return SleepStageRec(
+            id = this.id,
             stage = this.stage,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            source = this.source
+        )
+    }
+
+    // --- Basal Metabolic Rate ---
+    fun BasalMetabolicRateRec.toEntity(): BasalMetabolicRateEntity {
+        return BasalMetabolicRateEntity(
+            id = this.id,
+            energyKilocaloriesPerDay = this.energyKilocaloriesPerDay,
+            time = this.time,
+            source = this.source
+        )
+    }
+
+    fun BasalMetabolicRateEntity.toDomain(): BasalMetabolicRateRec {
+        return BasalMetabolicRateRec(
+            id = this.id,
+            energyKilocaloriesPerDay = this.energyKilocaloriesPerDay,
+            time = this.time,
+            source = this.source
         )
     }
 }

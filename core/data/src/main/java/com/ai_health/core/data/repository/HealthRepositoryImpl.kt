@@ -43,68 +43,15 @@ class HealthRepositoryImpl @Inject constructor(
         val startOfToday = java.time.LocalDate.now()
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
-        // Sync last 30 days for history, or just today/yesterday as per previous logic.
-        // User didn't specify range, but implied "sync data". I'll stick to a reasonable window or the previous logic (Start of today/yesterday).
-        // The previous logic was "Start of Today" for most, "Start of Yesterday" for sleep.
-        // I will expand it slightly to ensure we have data, e.g. last 24h or so, or stick to previous.
-        // Let's use startOfToday as the baseline for fetch, similar to previous.
         
-        val fetchStart = startOfToday.minus(1, ChronoUnit.DAYS) // Fetch a bit more context if needed
+        val fetchStart = startOfToday.minus(1, ChronoUnit.DAYS)
 
-        // Steps
-        val rawSteps = healthConnectManager.fetchSteps(fetchStart, now)
-        Log.d(TAG, "Fetched ${rawSteps.size} steps records")
-        if (rawSteps.isNotEmpty()) {
-            val normalized = healthConnectNormalizer.normalizeSteps(rawSteps) 
-            // NormalizeSteps returns List<HealthCacheEntity> in the old code. 
-            // The normalizer likely needs update OR I map rawSteps manually here if normalizer is obsolete.
-            // Since I am rewriting the persistence layer, the old Normalizer (HealthCacheEntity) is probably not useful unless I update it.
-            // I will assume I need to map `HealthConnectManager` DTOs -> `*Rec` (Domain) -> `Entity` (Room).
-            // OR DTO -> Entity directly.
-            // The user said: "mapped in Room Entities... using models... as reference".
-            // Since I don't see the DTO structure here (it was in `healthConnectManager.fetchSteps`), I will assume I can map from the DTOs given in the previous `HealthRepositoryImpl`.
-            // Previous: `healthConnectManager.fetchSteps` returned DTOs, then normalizer made `HealthCacheEntity`.
-            // I will assume DTOs are available. I'll rely on the fact that I can't see DTO class definitions but I saw usages: `dto.count`, `dto.startTime`.
-            
-            // I will implement mapping from the generic DTOs usage I saw.
-            
-            val stepsEntities = rawSteps.map { dto ->
-                 // I need to construct StepsRec first? or straight to Entity?
-                 // User said "mappare gli oggetti *Entity... negli oggetti *Rec... prima di restituirli" (Read).
-                 // For Write (Sync): "non generare un nuovo UUID... usa stringa deterministica".
-                 // I will create Entities directly from DTOs here for efficiency, using the Mapper helper for ID generation if possible, or just calling the Entity constructor.
-                 // Actually Mapper has `StepsRec.toEntity`. I can create a temporary Rec or just use the logic.
-                 // To avoid creating dummy Recs, I'll use `HealthMappers.generateId`.
-                 
-                 // NOTE: I tried to use `StepsRec` intermediate but `HealthConnectNormalizer` was used previously.
-                 // I will assume `rawSteps` is a list of DTOs with `count`, `startTime`, `endTime`, `source`.
-                 // I'll assume `sourcePackage` in DTO is `source`.
-                 
-                 // Wait, `HealthConnectManager` is imported. I don't see its source.
-                 // I will do my best to map based on previous usage.
-                 /*
-                 Previous usage:
-                 dao.insertAll(healthConnectNormalizer.normalizeSteps(rawSteps))
-                 */
-                 // I will assume `healthConnectNormalizer` is now largely obsolete for the NEW entities, 
-                 // UNLESS I update it.
-                 // I will write the mapping logic here for now to be safe.
-            }
-            // Implementation of mapping below...
-        }
-        
-        // I need to implement the fetch and map for all types.
-        // Since I cannot compile check the DTO properties, I will infer from `HealthRepositoryImpl` previous view.
-        
         // A. STEPS
         val steps = healthConnectManager.fetchSteps(fetchStart, now)
+        Log.d(TAG, "Fetched ${steps.size} steps records")
         val stepEntities = steps.map {
-             // Mocking DTO access based on previous file
-             // dto is likely: count, startTime, endTime, sourcePackage/source
-             // The previous file had `healthConnectNormalizer.normalizeSteps(rawSteps)`.
-             // I'll assume direct mapping for now.
              com.ai_health.core.data.local.entity.StepsEntity(
-                 id = HealthMappers.generateId("STEPS", Instant.ofEpochMilli(it.startTime)),
+                 id = it.id,
                  count = it.count,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -135,7 +82,7 @@ class HealthRepositoryImpl @Inject constructor(
             // For now, I'll assume I can construct a SleepSessionEntity.
             
              val sessionEntity = com.ai_health.core.data.local.entity.SleepSessionEntity(
-                 id = HealthMappers.generateId("SLEEP_SESSION", Instant.ofEpochMilli(sessionDto.startTime)),
+                 id = sessionDto.id,
                  title = null, 
                  notes = null,
                  startTime = Instant.ofEpochMilli(sessionDto.startTime),
@@ -148,6 +95,7 @@ class HealthRepositoryImpl @Inject constructor(
                  com.ai_health.core.data.local.entity.SleepStageEntity(
                      id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
                      sleepSessionId = sessionEntity.id,
+                    source = sessionEntity.source,
                      stage = stageDto.stage,
                      startTime = Instant.ofEpochMilli(stageDto.startTime),
                      endTime = Instant.ofEpochMilli(stageDto.endTime)
@@ -162,7 +110,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${heart.size} heart rate records")
         val heartEntities = heart.map {
             com.ai_health.core.data.local.entity.HeartRateEntity(
-                id = HealthMappers.generateId("HEART_RATE", Instant.ofEpochMilli(it.startTime)),
+                id = it.id,
                 beatsPerMinute = it.bpm.toLong(),
                 time = Instant.ofEpochMilli(it.startTime),
                 source = it.sourcePackage
@@ -175,7 +123,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${calories.size} calories records")
         val calEntities = calories.map {
              com.ai_health.core.data.local.entity.CaloriesEntity(
-                 id = HealthMappers.generateId("CALORIES", Instant.ofEpochMilli(it.startTime)),
+                 id = it.id,
                  energyKilocalories = it.kilocalories,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -189,7 +137,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${distance.size} distance records")
         val distEntities = distance.map {
              com.ai_health.core.data.local.entity.DistanceEntity(
-                 id = HealthMappers.generateId("DISTANCE", Instant.ofEpochMilli(it.startTime)),
+                 id = it.id,
                  distanceMeters = it.distanceMeters,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
@@ -203,7 +151,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${oxygen.size} oxygen records")
         val oxyEntities = oxygen.map {
              com.ai_health.core.data.local.entity.OxygenSaturationEntity(
-                 id = HealthMappers.generateId("OXYGEN", Instant.ofEpochMilli(it.startTime)),
+                 id = it.id,
                  percentage = it.percentage,
                  time = Instant.ofEpochMilli(it.startTime),
                  source = it.sourcePackage
@@ -216,7 +164,7 @@ class HealthRepositoryImpl @Inject constructor(
         Log.d(TAG, "Fetched ${exercise.size} exercise records")
         val exEntities = exercise.map {
              com.ai_health.core.data.local.entity.ExerciseSessionEntity(
-                 id = HealthMappers.generateId("EXERCISE", Instant.ofEpochMilli(it.startTime)),
+                 id = it.id,
                  exerciseType = it.type,
                  title = it.title,
                  notes = it.notes,
@@ -227,8 +175,18 @@ class HealthRepositoryImpl @Inject constructor(
         }
         healthDao.insertExercises(exEntities)
         
-        // Note: BMR not in previous file, skipping unless expected. 
-        // User asked for "BasalMetabolicRateRec". I will add BMR fetch if Manager supports it, or just empty for now.
+        // H. BMR
+        val bmr = healthConnectManager.fetchBMR(fetchStart, now)
+        Log.d(TAG, "Fetched ${bmr.size} BMR records")
+        val bmrEntities = bmr.map {
+             com.ai_health.core.data.local.entity.BasalMetabolicRateEntity(
+                 id = it.id,
+                 energyKilocaloriesPerDay = it.kcalPerDay,
+                 time = Instant.ofEpochMilli(it.startTime),
+                 source = it.sourcePackage
+             )
+        }
+        healthDao.insertBmr(bmrEntities)
     }
 
     override fun getStepsHistory(startTime: Instant): Flow<List<StepsRec>> {
@@ -261,8 +219,6 @@ class HealthRepositoryImpl @Inject constructor(
     
     override fun getBasalMetabolicRateHistory(startTime: Instant): Flow<List<BasalMetabolicRateRec>> {
          // Assuming DAO has BMR
-         return healthDao.getBmr(startTime).map { list -> list.map { 
-             BasalMetabolicRateRec(it.source, it.energyKilocaloriesPerDay, it.time)
-         } }
+         return healthDao.getBmr(startTime).map { list -> list.map { it.toDomain() } }
     }
 }

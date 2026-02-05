@@ -11,8 +11,8 @@ import java.util.UUID
 
 @Entity(tableName = "sleep_sessions")
 data class SleepSessionEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val title: String?,
     val notes: String?,
@@ -33,8 +33,9 @@ data class SleepSessionEntity(
     indices = [Index("sleepSessionId")]
 )
 data class SleepStageEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
+    val source: String,
     val sleepSessionId: String,
     val stage: Int,
     val startTime: Instant,

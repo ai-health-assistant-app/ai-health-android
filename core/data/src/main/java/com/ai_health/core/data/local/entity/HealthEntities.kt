@@ -10,8 +10,8 @@ import java.util.UUID
 
 @Entity(tableName = "heart_rate")
 data class HeartRateEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val beatsPerMinute: Long,
     val time: Instant
@@ -19,8 +19,8 @@ data class HeartRateEntity(
 
 @Entity(tableName = "steps")
 data class StepsEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val count: Long,
     val startTime: Instant,
     val endTime: Instant,
@@ -29,8 +29,8 @@ data class StepsEntity(
 
 @Entity(tableName = "exercise_sessions")
 data class ExerciseSessionEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val exerciseType: String,
     val title: String?,
@@ -41,8 +41,8 @@ data class ExerciseSessionEntity(
 
 @Entity(tableName = "oxygen_saturation")
 data class OxygenSaturationEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val percentage: Double,
     val time: Instant
@@ -50,8 +50,8 @@ data class OxygenSaturationEntity(
 
 @Entity(tableName = "distance")
 data class DistanceEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val distanceMeters: Double,
     val startTime: Instant,
@@ -60,8 +60,8 @@ data class DistanceEntity(
 
 @Entity(tableName = "calories")
 data class CaloriesEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val energyKilocalories: Double,
     val startTime: Instant,
@@ -70,8 +70,8 @@ data class CaloriesEntity(
 
 @Entity(tableName = "basal_metabolic_rate")
 data class BasalMetabolicRateEntity(
-    @PrimaryKey
-    val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     val source: String,
     val energyKilocaloriesPerDay: Double,
     val time: Instant
