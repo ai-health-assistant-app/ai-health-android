@@ -3,19 +3,22 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" 
+
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
-    
+
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_BASAL_METABOLIC_RATE" />
+
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
 
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
@@ -35,16 +38,29 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.Assistant">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+                <action android:name="android.health.connect.action.SHOW_PERMISSIONS_RATIONALE" /> <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+
+                <category android:name="android.intent.category.DEFAULT" /> <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
+
+            <meta-data
+                android:name="android.health.connect.special_privileges.RATIONALE_VIEW_COMPONENT_NAME"
+                android:value="com.ai_health.assistant.MainActivity" />
         </activity>
+
+        <property
+            android:name="android.health.PROPERTY_HEALTH_CONNECT_PERMISSION_RATIONALE_ACTIVITY_NAME"
+            android:value="com.ai_health.assistant.MainActivity" />
     </application>
 
 </manifest>

@@ -12,7 +12,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 /**
  * Main entry point for the AI Health Assistant application.
- * 
+ *
  * This Activity has been refactored to follow proper architecture patterns:
  * - No direct ViewModel instantiation
  * - No navigation logic (delegated to AppNavHost)
@@ -22,6 +22,11 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // [IMPORTANTE] Controllo immediato dell'Intent
+        checkHealthConnectRationale(intent)
+
+        HealthConnectClient.getSdkStatus(this)
 
         // Health Connect SDK availability check
         // Note: This check is performed but not currently used
@@ -36,6 +41,30 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize()
                 )
             }
+        }
+    }
+
+    // [IMPORTANTE] Gestione onNewIntent se l'activity è già aperta
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        checkHealthConnectRationale(intent)
+    }
+
+    // [IMPORTANTE] Logica di visualizzazione Rationale
+    private fun checkHealthConnectRationale(intent: android.content.Intent?) {
+        val rationaleAction = "androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"
+        val systemRationaleAction = "android.health.connect.action.SHOW_PERMISSIONS_RATIONALE"
+
+        if (intent?.action == rationaleAction || intent?.action == systemRationaleAction) {
+            // Mostriamo un dialogo di sistema semplice
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Dati Salute e Privacy")
+                .setMessage("Spiegazione di come l'app utilizza i dati Health Connect...") // Personalizza il messaggio
+                .setPositiveButton("Ho capito") { dialog, _ ->
+                    dialog.dismiss()
+                }
+                .setCancelable(false)
+                .show()
         }
     }
 }
