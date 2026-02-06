@@ -3,20 +3,23 @@ package com.ai_health.feature.dashboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ai_health.core.domain.model.HeartRateRec
+import com.ai_health.core.domain.model.SleepSessionRec
 import com.ai_health.core.domain.usecase.GetDashboardDataUseCase
 import com.ai_health.core.domain.usecase.sleep.AnalyzeSleepQualityUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.Locale
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import com.ai_health.ui.components.ChartDataPoint
 import com.ai_health.core.domain.repository.HealthRepository
 
@@ -30,24 +33,33 @@ class DashboardViewModel @Inject constructor(
 
     companion object {
         private const val KEY_IS_REFRESHING = "is_refreshing"
+        private const val DAYTIME_WINDOW_HOURS = 16L
+        private const val BASELINE_DAYS = 7
     }
 
     // Fetch sleep sessions for the last 30 days
-    private val thirtyDaysAgo = java.time.Instant.now().minus(30, java.time.temporal.ChronoUnit.DAYS)
+    private val thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS)
     private val sleepSessionsFlow = healthRepository.getSleepHistory(thirtyDaysAgo)
+    
+    // Fetch heart rate history for baseline and session analysis
+    private val heartRateFlow = healthRepository.getHeartRateHistory(thirtyDaysAgo)
 
     val uiState: StateFlow<DashboardUiState> = getDashboardDataUseCase()
-        .combine(sleepSessionsFlow) { data, sleepSessions ->
+        .combine(sleepSessionsFlow) { data, sleepSessions -> Pair(data, sleepSessions) }
+        .combine(heartRateFlow) { (data, sleepSessions), allHeartRates ->
             val h = data.sleepMinutes / 60
             val m = data.sleepMinutes % 60
             
             // Reverse the list so newest sessions are first (index 0)
-            // This way: swipe right (increasing index) = older data, swipe left = newer data
             val reversedSessions = sleepSessions.reversed()
             
-            // Analyze each sleep session
+            // Calculate baseline RHR from last 7 days of data
+            val baselineRhr = calculateBaselineRhr(allHeartRates)
+            
+            // Analyze each sleep session with per-session HR data
             val sleepAnalyses = reversedSessions.associate { session ->
-                session.id to analyzeSleepQualityUseCase(session)
+                val sessionHrData = getHeartRatesForSession(allHeartRates, session)
+                session.id to analyzeSleepQualityUseCase(session, sessionHrData, baselineRhr)
             }
 
             DashboardUiState(
@@ -67,31 +79,18 @@ class DashboardViewModel @Inject constructor(
                 oxygenHistory = data.oxygenHistory.map { ChartDataPoint(it.timestamp, it.value) },
                 
                 selectedSleepSession = data.latestSleepSession,
-                sleepQualityAnalysis = data.latestSleepSession?.let { analyzeSleepQualityUseCase(it) },
+                sleepQualityAnalysis = data.latestSleepSession?.let { session ->
+                    val hrData = getHeartRatesForSession(allHeartRates, session)
+                    analyzeSleepQualityUseCase(session, hrData, baselineRhr)
+                },
                 
                 sleepSessions = reversedSessions,
                 sleepAnalyses = sleepAnalyses
             )
         }
         .catch { e ->
-            // In a real app we might want to emit an Error state, but DashboardUiState structure in previous file
-            // didn't strictly have a sealed class hierarchy (it was a data class).
-            // User request mentioned "DashboardUiState.Success", "DashboardUiState.Error". 
-            // Previous file `DashboardUiState` was a simple data class (line 21: `MutableStateFlow(DashboardUiState())`).
-            // I need to check `DashboardUiState` definition to see if it sustains Loading/Error.
-            // If it's a data class, I can just set error properties if they exist, or log.
-            // User instruction: "Gestisci i tre stati: Loading, Success, Error".
-            // This suggests I might need to Refactor DashboardUiState to be a sealed interface OR use flags.
-            // But the previous file showed `data class` usage.
-            // "Transforma ... in StateFlow<DashboardUiState> ... DashboardUiState.Success(data)".
-            // This implies the user *expects* me to change DashboardUiState to a sealed class/interface if it isn't one.
-            // I should check `DashboardUiState.kt` content.
-            // I haven't read it yet. I assumed it. 
-            // I will assume for now I need to update it or it is a data class with flags.
-            // Wait, previous file `DashboardViewModel.kt` used `isLoading = true`.
-            // I will err on side of caution: maintain data class if I can't see the file, OR check the file first.
-            // I'll check `DashboardUiState` first to be safe.
-            emit(DashboardUiState(isLoading = false)) // Fallback if catch happens
+            e.printStackTrace()
+            emit(DashboardUiState(isLoading = false))
         }
         .stateIn(
             scope = viewModelScope,
@@ -103,6 +102,45 @@ class DashboardViewModel @Inject constructor(
 
     init {
         refreshData()
+    }
+
+    /**
+     * Estrae i dati HR per una specifica sessione di sonno.
+     * Finestra: sleepStart - 16h (dati diurni per dipping) fino a sleepEnd.
+     */
+    private fun getHeartRatesForSession(
+        allHeartRates: List<HeartRateRec>,
+        session: SleepSessionRec
+    ): List<HeartRateRec> {
+        val windowStart = session.startTime.minus(DAYTIME_WINDOW_HOURS, ChronoUnit.HOURS)
+        val windowEnd = session.endTime
+        
+        return allHeartRates.filter { hr ->
+            hr.time >= windowStart && hr.time <= windowEnd
+        }
+    }
+
+    /**
+     * Calcola la baseline RHR come media degli ultimi 7 giorni.
+     * Considera i valori minimi notturni quando possibile.
+     */
+    private fun calculateBaselineRhr(heartRates: List<HeartRateRec>): Int {
+        if (heartRates.isEmpty()) return 60 // Default fallback
+        
+        val now = Instant.now()
+        val sevenDaysAgo = now.minus(BASELINE_DAYS.toLong(), ChronoUnit.DAYS)
+        
+        // Filtra gli ultimi 7 giorni e prendi i valori più bassi (proxy per RHR)
+        val recentHr = heartRates.filter { it.time >= sevenDaysAgo }
+        
+        if (recentHr.isEmpty()) return 60
+        
+        // Calcola la media dei 10% valori più bassi (approx. minimo notturno)
+        val sorted = recentHr.sortedBy { it.beatsPerMinute }
+        val lowestCount = (sorted.size * 0.1).toInt().coerceAtLeast(1)
+        val lowestValues = sorted.take(lowestCount)
+        
+        return lowestValues.map { it.beatsPerMinute }.average().toInt().coerceIn(40, 100)
     }
 
     fun refreshData() {

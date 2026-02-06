@@ -28,6 +28,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ai_health.core.domain.model.SleepQualityResult
+import com.ai_health.core.domain.model.ScoreBreakdown
+import com.ai_health.core.domain.model.SleepMetrics
 import com.ai_health.core.domain.model.SleepSessionRec
 import com.ai_health.core.domain.model.SleepStageRec
 import com.ai_health.core.domain.model.SleepStageType
@@ -148,6 +150,30 @@ private fun SleepDetailContent(
                 .background(Color(0xFF1E293B), RoundedCornerShape(12.dp))
                 .padding(16.dp)
         )
+
+        // Score Breakdown Section (if available)
+        analysis.breakdown?.let { breakdown ->
+            Text(
+                text = "Composizione Punteggio",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Start)
+            )
+            ScoreBreakdownCard(breakdown = breakdown)
+        }
+
+        // HR Metrics Section (if available)
+        analysis.metrics?.let { metrics ->
+            if (metrics.nocturnalHrAvg != null) {
+                Text(
+                    text = "Analisi Cardiaca",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                HrMetricsCard(metrics = metrics)
+            }
+        }
 
         // Timeline Chart
         Text(
@@ -393,5 +419,216 @@ fun getStageColor(stage: SleepStageType): Color {
         SleepStageType.OUT_OF_BED -> Color(0xFF94A3B8) // Gray
         SleepStageType.SLEEPING -> Color(0xFF3B82F6) // Generic Blue
         SleepStageType.UNKNOWN -> Color.Gray
+    }
+}
+
+@Composable
+fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ScoreProgressRow(
+                label = "Architettura",
+                score = breakdown.architectureScore,
+                maxScore = 40.0,
+                color = Color(0xFF3B82F6)
+            )
+            ScoreProgressRow(
+                label = "HR Dipping",
+                score = breakdown.dippingScore,
+                maxScore = 30.0,
+                color = Color(0xFF10B981)
+            )
+            ScoreProgressRow(
+                label = "RHR",
+                score = breakdown.rhrScore,
+                maxScore = 20.0,
+                color = Color(0xFFF97316)
+            )
+            ScoreProgressRow(
+                label = "Timing Nadir",
+                score = breakdown.timingScore,
+                maxScore = 10.0,
+                color = Color(0xFF8B5CF6)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ScoreProgressRow(
+    label: String,
+    score: Double,
+    maxScore: Double,
+    color: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF94A3B8)
+            )
+            Text(
+                text = "%.0f / %.0f".format(score, maxScore),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        LinearProgressIndicator(
+            progress = { (score / maxScore).toFloat().coerceIn(0f, 1f) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp),
+            color = color,
+            trackColor = Color(0xFF374151),
+            strokeCap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Dipping Row
+            metrics.dippingPercent?.let { dip ->
+                val dipColor = when {
+                    dip < 0 -> Color(0xFFEF4444) // Rosso - Reverse
+                    dip < 10 -> Color(0xFFFBBF24) // Giallo - Non-dipper
+                    dip <= 20 -> Color(0xFF10B981) // Verde - Normal
+                    else -> Color(0xFF3B82F6) // Blu - Extreme
+                }
+                val dipLabel = when {
+                    dip < 0 -> "Reverse Dipper ⚠️"
+                    dip < 10 -> "Non-Dipper"
+                    dip <= 20 -> "Normal Dipper ✓"
+                    else -> "Extreme Dipper"
+                }
+                HrMetricRow(
+                    label = "HR Dipping",
+                    value = "%.1f%%".format(dip),
+                    subtitle = dipLabel,
+                    color = dipColor
+                )
+            }
+
+            // HR Averages
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                metrics.nocturnalHrAvg?.let { hr ->
+                    HrMetricBox(
+                        modifier = Modifier.weight(1f),
+                        label = "HR Notturna",
+                        value = "$hr",
+                        unit = "bpm"
+                    )
+                }
+                metrics.daytimeHrAvg?.let { hr ->
+                    HrMetricBox(
+                        modifier = Modifier.weight(1f),
+                        label = "HR Diurna",
+                        value = "$hr",
+                        unit = "bpm"
+                    )
+                }
+            }
+
+            // Nadir
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                metrics.lowestNocturnalHr?.let { hr ->
+                    HrMetricBox(
+                        modifier = Modifier.weight(1f),
+                        label = "HR Minima",
+                        value = "$hr",
+                        unit = "bpm"
+                    )
+                }
+                metrics.hrNadirOffsetPercent?.let { pos ->
+                    val posLabel = when (pos) {
+                        in 40..65 -> "Ottimale"
+                        in 30..75 -> "Buono"
+                        else -> "Da migliorare"
+                    }
+                    HrMetricBox(
+                        modifier = Modifier.weight(1f),
+                        label = "Posizione Nadir",
+                        value = "$pos%",
+                        unit = posLabel
+                    )
+                }
+            }
+
+            // Data Quality
+            Text(
+                text = "Qualità dati: ${"%.0f".format(metrics.dataQualityScore * 100)}%",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF64748B),
+                modifier = Modifier.align(Alignment.End)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HrMetricRow(
+    label: String,
+    value: String,
+    subtitle: String,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF94A3B8))
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = color)
+        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun HrMetricBox(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    unit: String
+) {
+    Column(
+        modifier = modifier
+            .background(Color(0xFF374151), RoundedCornerShape(8.dp))
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF94A3B8))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold
+        )
+        Text(text = unit, style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
     }
 }
