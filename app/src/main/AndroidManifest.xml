@@ -61,6 +61,18 @@
         <property
             android:name="android.health.PROPERTY_HEALTH_CONNECT_PERMISSION_RATIONALE_ACTIVITY_NAME"
             android:value="com.ai_health.assistant.MainActivity" />
+        
+        <!-- Disable default WorkManager initialization to use HiltWorkerFactory -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>

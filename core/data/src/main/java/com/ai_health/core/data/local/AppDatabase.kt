@@ -6,19 +6,34 @@ import androidx.room.TypeConverters
 import com.ai_health.core.data.local.converter.Converters
 import com.ai_health.core.data.local.dao.HealthMetricDao
 import com.ai_health.core.data.local.dao.SleepDao
+import com.ai_health.core.data.local.dao.SyncTokenDao
 import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
 import com.ai_health.core.data.local.entity.ExerciseSessionEntity
 import com.ai_health.core.data.local.entity.HeartRateEntity
+import com.ai_health.core.data.local.entity.HeartRateSessionEntity
 import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.SleepSessionEntity
 import com.ai_health.core.data.local.entity.SleepStageEntity
 import com.ai_health.core.data.local.entity.StepsEntity
+import com.ai_health.core.data.local.entity.SyncTokenEntity
 
+/**
+ * AppDatabase - Database Room crittografato con SQLCipher.
+ * 
+ * PRIVACY-PROOF ARCHITECTURE:
+ * - Crittografia AES-256 tramite SQLCipher
+ * - Passphrase gestita da EncryptedSharedPreferences (SecureKeyManager)
+ * - Nessun cloud backend, tutti i dati rimangono sul dispositivo
+ * 
+ * Version 4: Aggiunta SyncTokenEntity e HeartRateSessionEntity per
+ * sincronizzazione differenziale (Changes API) e ottimizzazione HR.
+ */
 @Database(
     entities = [
         HeartRateEntity::class,
+        HeartRateSessionEntity::class,  // NEW: Ottimizzazione dati ad alta frequenza
         StepsEntity::class,
         ExerciseSessionEntity::class,
         OxygenSaturationEntity::class,
@@ -26,32 +41,19 @@ import com.ai_health.core.data.local.entity.StepsEntity
         CaloriesEntity::class,
         BasalMetabolicRateEntity::class,
         SleepSessionEntity::class,
-        SleepStageEntity::class
+        SleepStageEntity::class,
+        SyncTokenEntity::class          // NEW: Token per Changes API
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun healthMetricDao(): HealthMetricDao
     abstract fun sleepDao(): SleepDao
-
-    companion object {
-        @Volatile
-        private var INSTANCE: AppDatabase? = null
-
-        fun getDatabase(context: android.content.Context): AppDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = androidx.room.Room.databaseBuilder(
-                    context.applicationContext,
-                    AppDatabase::class.java,
-                    "health_database"
-                )
-                .fallbackToDestructiveMigration()
-                .build()
-                INSTANCE = instance
-                instance
-            }
-        }
-    }
+    abstract fun syncTokenDao(): SyncTokenDao  // NEW: Per gestione token sincronizzazione
+    
+    // NOTA: Il metodo getDatabase() è stato rimosso.
+    // La creazione del DB crittografato è gestita da DataModule via Hilt DI.
 }
+

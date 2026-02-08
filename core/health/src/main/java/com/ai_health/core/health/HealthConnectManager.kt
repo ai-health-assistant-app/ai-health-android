@@ -5,13 +5,17 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.changes.DeletionChange
+import androidx.health.connect.client.changes.UpsertionChange
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.*
 import androidx.health.connect.client.records.metadata.Device
+import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import kotlin.reflect.KClass
 
 /**
  * HealthConnectManager is a "pure" component (Clean Architecture compliant).
@@ -56,7 +60,214 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    // --- FETCH METHODS ---
+    // --- CHANGES API (Differential Sync) ---
+    
+    /**
+     * Ottiene un token per la sincronizzazione differenziale.
+     * Il token cattura lo stato corrente e permette di richiedere solo i cambiamenti futuri.
+     */
+    suspend fun getChangesToken(): String {
+        val request = ChangesTokenRequest(
+            recordTypes = setOf(
+                StepsRecord::class,
+                HeartRateRecord::class,
+                SleepSessionRecord::class,
+                DistanceRecord::class,
+                ActiveCaloriesBurnedRecord::class,
+                OxygenSaturationRecord::class,
+                ExerciseSessionRecord::class,
+                BasalMetabolicRateRecord::class
+            )
+        )
+        return healthConnectClient.getChangesToken(request)
+    }
+    
+    /**
+     * Recupera i cambiamenti (delta) dal token specificato.
+     * Ritorna Upsert e Deletion changes per la sincronizzazione differenziale.
+     * 
+     * PRIVACY-PROOF: I DeletionChange DEVONO essere processati per rimuovere
+     * i dati dal database locale quando l'utente li cancella da Health Connect.
+     */
+    suspend fun getChanges(token: String): HealthChangesResult {
+        return try {
+            val response = healthConnectClient.getChanges(token)
+            
+            val changes = response.changes.mapNotNull { change ->
+                when (change) {
+                    is UpsertionChange -> {
+                        val record = change.record
+                        mapRecordToUpsertChange(record)
+                    }
+                    is DeletionChange -> {
+                        // Per le deletion, non sappiamo il tipo esatto dal change
+                        // ma abbiamo l'ID che è sufficiente per cercare nelle tabelle
+                        HealthChange.Deletion(
+                            recordType = "UNKNOWN", // Sarà determinato cercando in tutte le tabelle
+                            recordId = change.recordId
+                        )
+                    }
+                    else -> null
+                }
+            }
+            
+            HealthChangesResult(
+                changes = changes,
+                nextToken = response.nextChangesToken,
+                hasMore = response.hasMore,
+                tokenExpired = false
+            )
+        } catch (e: Exception) {
+            // TOKEN_EXPIRED o altri errori
+            if (e.message?.contains("TOKEN_EXPIRED", ignoreCase = true) == true ||
+                e.message?.contains("invalid", ignoreCase = true) == true) {
+                HealthChangesResult(
+                    changes = emptyList(),
+                    nextToken = "",
+                    hasMore = false,
+                    tokenExpired = true
+                )
+            } else {
+                throw e
+            }
+        }
+    }
+    
+    /**
+     * Mappa un Record di Health Connect in un HealthChange.Upsert.
+     */
+    private fun mapRecordToUpsertChange(record: Record): HealthChange.Upsert? {
+        return when (record) {
+            is StepsRecord -> HealthChange.Upsert(
+                recordType = "STEPS",
+                recordId = record.metadata.id,
+                data = RawStep(
+                    id = record.metadata.id,
+                    count = record.count,
+                    startTime = record.startTime.toEpochMilli(),
+                    endTime = record.endTime.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is HeartRateRecord -> {
+                val startTimeMs = record.startTime.toEpochMilli()
+                HealthChange.Upsert(
+                    recordType = "HEART_RATE",
+                    recordId = record.metadata.id,
+                    data = RawHeartRate(
+                        id = record.metadata.id,
+                        samples = record.samples.map { sample ->
+                            RawHeartRateSample(
+                                offsetMs = (sample.time.toEpochMilli() - startTimeMs).toInt(),
+                                bpm = sample.beatsPerMinute.toInt()
+                            )
+                        },
+                        startTime = startTimeMs,
+                        endTime = record.endTime.toEpochMilli(),
+                        sourcePackage = record.metadata.dataOrigin.packageName,
+                        deviceType = getDeviceType(record.metadata.device)
+                    )
+                )
+            }
+            is SleepSessionRecord -> HealthChange.Upsert(
+                recordType = "SLEEP",
+                recordId = record.metadata.id,
+                data = RawSleep(
+                    id = record.metadata.id,
+                    durationMinutes = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble(),
+                    stage = 0,
+                    startTime = record.startTime.toEpochMilli(),
+                    endTime = record.endTime.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    stages = record.stages.map { RawSleepStage(it.stage, it.startTime.toEpochMilli(), it.endTime.toEpochMilli()) },
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is DistanceRecord -> HealthChange.Upsert(
+                recordType = "DISTANCE",
+                recordId = record.metadata.id,
+                data = RawDistance(
+                    id = record.metadata.id,
+                    distanceMeters = record.distance.inMeters,
+                    startTime = record.startTime.toEpochMilli(),
+                    endTime = record.endTime.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is ActiveCaloriesBurnedRecord -> HealthChange.Upsert(
+                recordType = "CALORIES",
+                recordId = record.metadata.id,
+                data = RawCalories(
+                    id = record.metadata.id,
+                    kilocalories = record.energy.inKilocalories,
+                    startTime = record.startTime.toEpochMilli(),
+                    endTime = record.endTime.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is OxygenSaturationRecord -> HealthChange.Upsert(
+                recordType = "OXYGEN",
+                recordId = record.metadata.id,
+                data = RawOxygen(
+                    id = record.metadata.id,
+                    percentage = record.percentage.value,
+                    startTime = record.time.toEpochMilli(),
+                    endTime = record.time.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is ExerciseSessionRecord -> HealthChange.Upsert(
+                recordType = "EXERCISE",
+                recordId = record.metadata.id,
+                data = RawExercise(
+                    id = record.metadata.id,
+                    type = "Exercise_${record.exerciseType}",
+                    durationMinutes = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toDouble(),
+                    title = record.title,
+                    notes = record.notes,
+                    startTime = record.startTime.toEpochMilli(),
+                    endTime = record.endTime.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            is BasalMetabolicRateRecord -> HealthChange.Upsert(
+                recordType = "BMR",
+                recordId = record.metadata.id,
+                data = RawBMR(
+                    id = record.metadata.id,
+                    kcalPerDay = record.basalMetabolicRate.inKilocaloriesPerDay,
+                    startTime = record.time.toEpochMilli(),
+                    endTime = record.time.toEpochMilli(),
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
+                )
+            )
+            else -> null
+        }
+    }
+    
+    /**
+     * Helper per estrarre il tipo di dispositivo dai metadati.
+     * Usato per il filtering di dispositivi affidabili.
+     */
+    private fun getDeviceType(device: Device?): String {
+        return when (device?.type) {
+            Device.TYPE_WATCH -> "WATCH"
+            Device.TYPE_FITNESS_BAND -> "FITNESS_BAND"
+            Device.TYPE_PHONE -> "PHONE"
+            Device.TYPE_CHEST_STRAP -> "CHEST_STRAP"
+            Device.TYPE_RING -> "RING"
+            Device.TYPE_SCALE -> "SCALE"
+            else -> "UNKNOWN"
+        }
+    }
+
+    // --- FETCH METHODS (Legacy - utilizzati per cold-start sync) ---
 
     suspend fun fetchSteps(start: Instant, end: Instant): List<RawStep> {
         return try {
@@ -69,7 +280,8 @@ class HealthConnectManager(private val context: Context) {
                     count = record.count,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -78,22 +290,28 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
+    /**
+     * Fetch HeartRate con campioni offset-based per ottimizzazione HRV.
+     */
     suspend fun fetchHeartRate(start: Instant, end: Instant): List<RawHeartRate> {
         return try {
             val response = healthConnectClient.readRecords(
                 ReadRecordsRequest(HeartRateRecord::class, TimeRangeFilter.between(start, end))
             )
             response.records.map { record ->
-                val avgBpm = if (record.samples.isNotEmpty()) {
-                    record.samples.map { it.beatsPerMinute }.average()
-                } else 0.0
-
+                val startTimeMs = record.startTime.toEpochMilli()
                 RawHeartRate(
                     id = record.metadata.id,
-                    bpm = avgBpm,
-                    startTime = record.startTime.toEpochMilli(),
+                    samples = record.samples.map { sample ->
+                        RawHeartRateSample(
+                            offsetMs = (sample.time.toEpochMilli() - startTimeMs).toInt(),
+                            bpm = sample.beatsPerMinute.toInt()
+                        )
+                    },
+                    startTime = startTimeMs,
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {

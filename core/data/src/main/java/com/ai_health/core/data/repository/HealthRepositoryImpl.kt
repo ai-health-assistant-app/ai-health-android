@@ -105,13 +105,18 @@ class HealthRepositoryImpl @Inject constructor(
              sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
         }
 
-        // C. HEART RATE
+        // C. HEART RATE (Legacy: usa HeartRateEntity, non HeartRateSessionEntity)
         val heart = healthConnectManager.fetchHeartRate(fetchStart, now)
         Log.d(TAG, "Fetched ${heart.size} heart rate records")
         val heartEntities = heart.map {
+            // Calcola BPM medio dai campioni per backward compatibility
+            val avgBpm = if (it.samples.isNotEmpty()) {
+                it.samples.map { s -> s.bpm }.average().toLong()
+            } else 0L
+            
             com.ai_health.core.data.local.entity.HeartRateEntity(
                 id = it.id,
-                beatsPerMinute = it.bpm.toLong(),
+                beatsPerMinute = avgBpm,
                 time = Instant.ofEpochMilli(it.startTime),
                 source = it.sourcePackage
             )
