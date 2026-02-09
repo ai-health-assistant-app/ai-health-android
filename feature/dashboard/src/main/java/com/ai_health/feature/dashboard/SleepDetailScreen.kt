@@ -11,8 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +37,7 @@ import com.ai_health.core.domain.model.SleepStageRec
 import com.ai_health.core.domain.model.SleepStageType
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -42,22 +45,28 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SleepDetailScreen(
-    sessions: List<SleepSessionRec>,
-    analyses: Map<String, SleepQualityResult>,
-    initialSessionId: String?,
+    sleepNights: List<SleepNightData>,
+    initialDate: LocalDate?,
+    isLoadingMore: Boolean,
+    onPageChanged: (currentPage: Int, totalPages: Int) -> Unit,
     onBack: () -> Unit
 ) {
-    // Find the initial page index based on the selected session
-    val initialPage = if (initialSessionId != null) {
-        sessions.indexOfFirst { it.id == initialSessionId }.coerceAtLeast(0)
+    // Find the initial page index based on the selected date
+    val initialPage = if (initialDate != null) {
+        sleepNights.indexOfFirst { it.date == initialDate }.coerceAtLeast(0)
     } else {
         0
     }
     
     val pagerState = rememberPagerState(
         initialPage = initialPage,
-        pageCount = { sessions.size }
+        pageCount = { sleepNights.size }
     )
+    
+    // Monitor page changes for lazy loading
+    LaunchedEffect(pagerState.currentPage) {
+        onPageChanged(pagerState.currentPage, sleepNights.size)
+    }
     
     Scaffold(
         topBar = {
@@ -77,8 +86,8 @@ fun SleepDetailScreen(
         },
         containerColor = Color(0xFF0F172A)
     ) { padding ->
-        if (sessions.isEmpty()) {
-            // Empty state
+        if (sleepNights.isEmpty()) {
+            // Empty state - no nights loaded at all
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -94,31 +103,43 @@ fun SleepDetailScreen(
         } else {
             HorizontalPager(
                 state = pagerState,
+                reverseLayout = true, // Older nights on left, newer on right
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
             ) { page ->
-                val session = sessions[page]
-                val analysis = analyses[session.id]
+                val nightData = sleepNights[page]
                 
-                if (analysis != null) {
+                if (nightData.session != null && nightData.analysis != null) {
+                    // Night with data - show the full detail
                     SleepDetailContent(
-                        session = session,
-                        analysis = analysis
+                        session = nightData.session,
+                        analysis = nightData.analysis
                     )
                 } else {
-                    // Loading or error state for this session
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
+                    // Night without data - show empty state with date
+                    EmptyNightScreen(date = nightData.date)
+                }
+            }
+            
+            // Show loading indicator at the bottom when loading more
+            if (isLoadingMore) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(16.dp),
+                        color = Color.White
+                    )
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun SleepDetailContent(
@@ -219,6 +240,56 @@ fun SleepDateHeader(start: Instant, end: Instant) {
             style = MaterialTheme.typography.bodyMedium,
             color = Color(0xFF94A3B8)
         )
+    }
+}
+
+@Composable
+private fun EmptyNightScreen(date: LocalDate) {
+    val dateFormatter = DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.ITALIAN)
+    val dateStr = dateFormatter.format(date)
+    
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Date display
+            Text(
+                text = "Notte del $dateStr",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            
+            // Icon or visual indicator
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = Color(0xFF64748B)
+            )
+            
+            // Message
+            Text(
+                text = "Nessun dato sul sonno disponibile per questa notte",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color(0xFF94A3B8),
+                textAlign = TextAlign.Center
+            )
+            
+            Text(
+                text = "Scorri per visualizzare le altre notti",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF64748B),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 

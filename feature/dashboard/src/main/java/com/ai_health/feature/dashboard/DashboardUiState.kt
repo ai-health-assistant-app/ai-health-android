@@ -1,6 +1,17 @@
 package com.ai_health.feature.dashboard
 
 import com.ai_health.ui.components.ChartDataPoint
+import java.time.LocalDate
+
+/**
+ * Represents a single night's sleep data, including the date.
+ * If session is null, it means there's no sleep data available for that night.
+ */
+data class SleepNightData(
+    val date: LocalDate,
+    val session: com.ai_health.core.domain.model.SleepSessionRec?,
+    val analysis: com.ai_health.core.domain.model.SleepQualityResult?
+)
 
 data class DashboardUiState(
     val isLoading: Boolean = false,
@@ -23,7 +34,8 @@ data class DashboardUiState(
     val selectedSleepSession: com.ai_health.core.domain.model.SleepSessionRec? = null,
     val sleepQualityAnalysis: com.ai_health.core.domain.model.SleepQualityResult? = null,
     
-    // Sleep History for Date Navigation
-    val sleepSessions: List<com.ai_health.core.domain.model.SleepSessionRec> = emptyList(),
-    val sleepAnalyses: Map<String, com.ai_health.core.domain.model.SleepQualityResult> = emptyMap()
+    // Sleep History for Date Navigation - NEW STRUCTURE
+    // This replaces the old sleepSessions and sleepAnalyses with a unified structure
+    val sleepNights: List<SleepNightData> = emptyList(),
+    val isLoadingMoreSleep: Boolean = false
 )

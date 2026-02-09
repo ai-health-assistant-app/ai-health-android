@@ -212,7 +212,7 @@ class AnalyzeSleepQualityUseCase @Inject constructor() {
         
         println("[SleepScoring] " + "🎯 Nadir Analysis:")
         println("[SleepScoring] " + "   Lowest HR: $lowestNocturnalHr bpm at ${timeFormatter.format(minHrRec.time)}")
-        println("[SleepScoring] " + "   Nadir position: $nadirOffsetPercent%% of night (optimal: 40-65%%)")
+        println("[SleepScoring] " + "   Nadir position: $nadirOffsetPercent% of night (optimal: 40-65%)")
         println("[SleepScoring] " + "   Baseline RHR: $userBaselineRhr bpm, Delta: ${lowestNocturnalHr - userBaselineRhr} bpm")
 
         // --- FASE 4: Calcolo Punteggi (Scoring) ---

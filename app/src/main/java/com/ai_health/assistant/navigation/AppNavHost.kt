@@ -49,14 +49,14 @@ fun AppNavHost(
     if (!isLoading) {
         NavHost(
             navController = navController,
-            startDestination = startDestination,
+            startDestination = if (startDestination == "dashboard") "dashboard_graph" else startDestination,
             modifier = modifier
         ) {
             // Onboarding feature navigation graph
             onboardingGraph(
                 onOnboardingFinished = {
                     // Navigate to dashboard and clear onboarding from back stack
-                    navController.navigate("dashboard") {
+                    navController.navigate("dashboard_graph") {
                         popUpTo("onboarding") { inclusive = true }
                     }
                 }
@@ -64,6 +64,7 @@ fun AppNavHost(
             
             // Dashboard feature navigation graph (includes detail screens)
             dashboardGraph(
+                navController = navController,
                 onMetricClick = { type ->
                     navController.navigate("detail/$type")
                 },

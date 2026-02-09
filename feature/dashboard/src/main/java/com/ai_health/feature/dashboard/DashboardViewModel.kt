@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ai_health.core.domain.model.HeartRateRec
 import com.ai_health.core.domain.model.SleepSessionRec
+import com.ai_health.core.domain.model.SleepQualityResult
 import com.ai_health.core.domain.usecase.GetDashboardDataUseCase
 import com.ai_health.core.domain.usecase.sleep.AnalyzeSleepQualityUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,9 +20,19 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import java.util.Locale
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import com.ai_health.ui.components.ChartDataPoint
 import com.ai_health.core.domain.repository.HealthRepository
+
+// Helper data class for combining multiple flows
+private data class Quadruple<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -35,7 +46,17 @@ class DashboardViewModel @Inject constructor(
         private const val KEY_IS_REFRESHING = "is_refreshing"
         private const val DAYTIME_WINDOW_HOURS = 16L
         private const val BASELINE_DAYS = 7
+        private const val INITIAL_WEEKS_TO_LOAD = 1 // Start with 1 week
+        private const val PAGINATION_LOAD_WEEKS = 1 // Load 1 week at a time when paginating
     }
+
+    // In-memory cache per evitare ricalcoli costosi dell'analisi del sonno
+    private val sleepAnalysisCache = mutableMapOf<String, SleepQualityResult>()
+    
+    // Pagination state
+    private val _weeksLoaded = MutableStateFlow(INITIAL_WEEKS_TO_LOAD)
+    private val _isLoadingMoreSleep = MutableStateFlow(false)
+
 
     // Fetch sleep sessions for the last 30 days
     private val thirtyDaysAgo = Instant.now().minus(30, ChronoUnit.DAYS)
@@ -46,21 +67,26 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> = getDashboardDataUseCase()
         .combine(sleepSessionsFlow) { data, sleepSessions -> Pair(data, sleepSessions) }
-        .combine(heartRateFlow) { (data, sleepSessions), allHeartRates ->
+        .combine(heartRateFlow) { (data, sleepSessions), allHeartRates -> 
+            Triple(data, sleepSessions, allHeartRates) 
+        }
+        .combine(_weeksLoaded) { (data, sleepSessions, allHeartRates), weeksLoaded ->
+            Quadruple(data, sleepSessions, allHeartRates, weeksLoaded)
+        }
+        .combine(_isLoadingMoreSleep) { (data, sleepSessions, allHeartRates, weeksLoaded), isLoadingMore ->
             val h = data.sleepMinutes / 60
             val m = data.sleepMinutes % 60
-            
-            // Reverse the list so newest sessions are first (index 0)
-            val reversedSessions = sleepSessions.reversed()
             
             // Calculate baseline RHR from last 7 days of data
             val baselineRhr = calculateBaselineRhr(allHeartRates)
             
-            // Analyze each sleep session with per-session HR data
-            val sleepAnalyses = reversedSessions.associate { session ->
-                val sessionHrData = getHeartRatesForSession(allHeartRates, session)
-                session.id to analyzeSleepQualityUseCase(session, sessionHrData, baselineRhr)
-            }
+            // Generate date sequence based on weeks loaded
+            val sleepNights = generateSleepNights(
+                sleepSessions = sleepSessions,
+                allHeartRates = allHeartRates,
+                baselineRhr = baselineRhr,
+                weeksToShow = weeksLoaded
+            )
 
             DashboardUiState(
                 isLoading = false,
@@ -80,12 +106,14 @@ class DashboardViewModel @Inject constructor(
                 
                 selectedSleepSession = data.latestSleepSession,
                 sleepQualityAnalysis = data.latestSleepSession?.let { session ->
-                    val hrData = getHeartRatesForSession(allHeartRates, session)
-                    analyzeSleepQualityUseCase(session, hrData, baselineRhr)
+                    sleepAnalysisCache.getOrPut(session.id) {
+                        val hrData = getHeartRatesForSession(allHeartRates, session)
+                        analyzeSleepQualityUseCase(session, hrData, baselineRhr)
+                    }
                 },
                 
-                sleepSessions = reversedSessions,
-                sleepAnalyses = sleepAnalyses
+                sleepNights = sleepNights,
+                isLoadingMoreSleep = isLoadingMore
             )
         }
         .catch { e ->
@@ -147,6 +175,12 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             savedStateHandle[KEY_IS_REFRESHING] = true
             try {
+                // Invalida la cache per forzare il ricalcolo con nuovi dati
+                sleepAnalysisCache.clear()
+                
+                // Reset pagination to initial state
+                _weeksLoaded.value = INITIAL_WEEKS_TO_LOAD
+                
                 // Forza il sync dei dati da Health Connect
                 healthRepository.syncHealthData()
             } catch (e: Exception) {
@@ -157,4 +191,85 @@ class DashboardViewModel @Inject constructor(
             }
         }
     }
+    
+    /**
+     * Genera la lista di SleepNightData per il numero di settimane specificate.
+     * Crea una sequenza completa di date (dalla più recente alla più vecchia) e mappa
+     * le sessioni di sonno disponibili. Le notti senza dati avranno session=null.
+     */
+    private fun generateSleepNights(
+        sleepSessions: List<SleepSessionRec>,
+        allHeartRates: List<HeartRateRec>,
+        baselineRhr: Int,
+        weeksToShow: Int
+    ): List<SleepNightData> {
+        val today = LocalDate.now(ZoneId.systemDefault())
+        val daysToShow = weeksToShow * 7
+        
+        // Generate complete date sequence from today going back
+        // Index 0 = most recent (today), higher indices = older dates
+        // Swipe right (increasing index) = older dates
+        // Swipe left (decreasing index) = newer dates
+        val dateSequence = (0 until daysToShow).map { dayOffset ->
+            today.minusDays(dayOffset.toLong())
+        }
+        
+        // Map sessions to their corresponding dates (based on sleep start time)
+        // Group by date, taking the most recent session if multiple exist for the same night
+        val sessionsByDate = sleepSessions
+            .groupBy { session ->
+                session.startTime.atZone(ZoneId.systemDefault()).toLocalDate()
+            }
+            .mapValues { (_, sessions) ->
+                // Take the most recent session (last in list chronologically)
+                sessions.maxByOrNull { it.startTime }
+            }
+        
+        // Create SleepNightData for each date
+        return dateSequence.map { date ->
+            val session = sessionsByDate[date]
+            val analysis = session?.let { sess ->
+                sleepAnalysisCache.getOrPut(sess.id) {
+                    val hrData = getHeartRatesForSession(allHeartRates, sess)
+                    analyzeSleepQualityUseCase(sess, hrData, baselineRhr)
+                }
+            }
+            
+            SleepNightData(
+                date = date,
+                session = session,
+                analysis = analysis
+            )
+        }
+    }
+    
+    /**
+     * Chiamato quando l'utente naviga verso il penultimo elemento.
+     * Carica la settimana precedente di dati.
+     */
+    fun loadPreviousWeek() {
+        if (_isLoadingMoreSleep.value) return // Avoid duplicate loads
+        
+        viewModelScope.launch {
+            _isLoadingMoreSleep.value = true
+            try {
+                // Incrementa il numero di settimane caricate
+                _weeksLoaded.value += PAGINATION_LOAD_WEEKS
+            } finally {
+                _isLoadingMoreSleep.value = false
+            }
+        }
+    }
+    
+    /**
+     * Callback da chiamare quando l'utente cambia pagina nel pager.
+     * Se raggiunge il penultimo elemento, triggera il caricamento.
+     */
+    fun onPageChanged(currentPage: Int, totalPages: Int) {
+        // Triggera il caricamento quando raggiunge il penultimo elemento
+        if (currentPage >= totalPages - 2 && !_isLoadingMoreSleep.value) {
+            loadPreviousWeek()
+        }
+    }
 }
+
