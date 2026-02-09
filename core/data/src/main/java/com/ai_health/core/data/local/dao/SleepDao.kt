@@ -37,4 +37,7 @@ interface SleepDao {
     // SleepStageEntity ha ForeignKey con onDelete = CASCADE, quindi le stages vengono eliminate automaticamente
     @Query("DELETE FROM sleep_sessions WHERE id = :recordId")
     suspend fun deleteSleepSessionById(recordId: String)
+
+    @Query("SELECT COUNT(*) FROM sleep_sessions")
+    suspend fun getSessionCount(): Int
 }

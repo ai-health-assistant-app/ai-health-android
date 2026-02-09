@@ -49,7 +49,19 @@ class HealthRepositoryImpl @Inject constructor(
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
         
-        val fetchStart = startOfToday.minus(1, ChronoUnit.DAYS)
+        // --- COLD START LOGIC ---
+        // Check if we have any data locally. If not, fetch 30 days.
+        // If we have data, fetch from yesterday (to cover late syncs)
+        val sleepCount = sleepDao.getSessionCount()
+        val stepsCount = healthDao.getStepsCount()
+        
+        val isColdStart = sleepCount == 0 && stepsCount == 0
+        
+        val daysToFetch = if (isColdStart) 30L else 1L
+        
+        Log.d(TAG, "Sync strategy: ColdStart=$isColdStart (sleep=$sleepCount, steps=$stepsCount). Fetching last $daysToFetch days.")
+
+        val fetchStart = startOfToday.minus(daysToFetch, ChronoUnit.DAYS)
 
         // A. STEPS
         val steps = healthConnectManager.fetchSteps(fetchStart, now)
