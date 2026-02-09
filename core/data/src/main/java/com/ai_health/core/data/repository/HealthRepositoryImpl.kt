@@ -9,6 +9,8 @@ import com.ai_health.core.domain.model.BasalMetabolicRateRec
 import com.ai_health.core.domain.model.CaloriesRec
 import com.ai_health.core.domain.model.DistanceRec
 import com.ai_health.core.domain.model.ExerciseSessionRec
+import com.ai_health.core.data.local.entity.HeartRateSessionEntity
+import com.ai_health.core.data.local.entity.HeartRateSample
 import com.ai_health.core.domain.model.HeartRateRec
 import com.ai_health.core.domain.model.OxygenSaturationRec
 import com.ai_health.core.domain.model.SleepSessionRec
@@ -18,6 +20,9 @@ import com.ai_health.core.health.HealthConnectManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import com.ai_health.core.data.mapper.HealthMappers.toDomainList
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -25,8 +30,8 @@ import javax.inject.Inject
 
 class HealthRepositoryImpl @Inject constructor(
     private val healthConnectManager: HealthConnectManager,
-    private val db: AppDatabase,
-    private val healthConnectNormalizer: com.ai_health.core.data.normalization.HealthConnectNormalizer
+    private val db: AppDatabase
+
 ) : HealthRepository {
 
     private val healthDao = db.healthMetricDao()
@@ -105,23 +110,25 @@ class HealthRepositoryImpl @Inject constructor(
              sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
         }
 
-        // C. HEART RATE (Legacy: usa HeartRateEntity, non HeartRateSessionEntity)
+        // C. HEART RATE (Optimized: usa HeartRateSessionEntity)
         val heart = healthConnectManager.fetchHeartRate(fetchStart, now)
-        Log.d(TAG, "Fetched ${heart.size} heart rate records")
-        val heartEntities = heart.map {
-            // Calcola BPM medio dai campioni per backward compatibility
-            val avgBpm = if (it.samples.isNotEmpty()) {
-                it.samples.map { s -> s.bpm }.average().toLong()
-            } else 0L
+        Log.d(TAG, "Fetched ${heart.size} heart rate sessions")
+        val heartEntities = heart.map { raw ->
+            val samples = raw.samples.map { 
+                HeartRateSample(offsetMs = it.offsetMs, bpm = it.bpm) 
+            }
+            val samplesJson = Json.encodeToString(samples)
             
-            com.ai_health.core.data.local.entity.HeartRateEntity(
-                id = it.id,
-                beatsPerMinute = avgBpm,
-                time = Instant.ofEpochMilli(it.startTime),
-                source = it.sourcePackage
+            HeartRateSessionEntity(
+                id = raw.id,
+                source = raw.sourcePackage,
+                deviceType = raw.deviceType,
+                startTime = Instant.ofEpochMilli(raw.startTime),
+                endTime = Instant.ofEpochMilli(raw.endTime),
+                samplesJson = samplesJson
             )
         }
-        healthDao.insertHeartRates(heartEntities)
+        healthDao.insertHeartRateSessions(heartEntities)
         
         // D. CALORIES
         val calories = healthConnectManager.fetchCalories(fetchStart, now)
@@ -203,7 +210,9 @@ class HealthRepositoryImpl @Inject constructor(
     }
 
     override fun getHeartRateHistory(startTime: Instant): Flow<List<HeartRateRec>> {
-        return healthDao.getHeartRates(startTime).map { list -> list.map { it.toDomain() } }
+        return healthDao.getHeartRateSessions(startTime).map { sessions -> 
+            sessions.flatMap { it.toDomainList() } 
+        }
     }
 
     override fun getCaloriesHistory(startTime: Instant): Flow<List<CaloriesRec>> {

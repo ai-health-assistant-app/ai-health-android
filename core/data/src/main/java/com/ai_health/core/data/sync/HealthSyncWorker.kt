@@ -300,7 +300,7 @@ class HealthSyncWorker @AssistedInject constructor(
         // Poiché non sappiamo il tipo esatto, proviamo a cancellare da tutte le tabelle
         // Solo una avrà successo (l'ID è univoco globalmente in Health Connect)
         healthDao.deleteStepsById(recordId)
-        healthDao.deleteHeartRateById(recordId)
+        healthDao.deleteHeartRateSessionById(recordId)
         healthDao.deleteDistanceById(recordId)
         healthDao.deleteCaloriesById(recordId)
         healthDao.deleteOxygenById(recordId)

@@ -8,14 +8,7 @@ import java.util.UUID
 // Common interface just to enforce ID presence if needed, or just individual classes.
 // User requested "Crea una @Entity per ogni modello".
 
-@Entity(tableName = "heart_rate")
-data class HeartRateEntity(
-    @PrimaryKey(autoGenerate = false)
-    val id: String,
-    val source: String,
-    val beatsPerMinute: Long,
-    val time: Instant
-)
+
 
 @Entity(tableName = "steps")
 data class StepsEntity(

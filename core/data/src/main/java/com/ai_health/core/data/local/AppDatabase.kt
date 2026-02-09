@@ -11,7 +11,7 @@ import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
 import com.ai_health.core.data.local.entity.ExerciseSessionEntity
-import com.ai_health.core.data.local.entity.HeartRateEntity
+
 import com.ai_health.core.data.local.entity.HeartRateSessionEntity
 import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.SleepSessionEntity
@@ -32,7 +32,7 @@ import com.ai_health.core.data.local.entity.SyncTokenEntity
  */
 @Database(
     entities = [
-        HeartRateEntity::class,
+
         HeartRateSessionEntity::class,  // NEW: Ottimizzazione dati ad alta frequenza
         StepsEntity::class,
         ExerciseSessionEntity::class,

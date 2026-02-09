@@ -8,7 +8,7 @@ import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
 import com.ai_health.core.data.local.entity.ExerciseSessionEntity
-import com.ai_health.core.data.local.entity.HeartRateEntity
+
 import com.ai_health.core.data.local.entity.HeartRateSessionEntity
 import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.StepsEntity
@@ -22,15 +22,7 @@ import java.time.Instant
 interface HealthMetricDao {
 
     // --- HEART RATE (Legacy) ---
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertHeartRates(entities: List<HeartRateEntity>)
 
-    @Query("SELECT * FROM heart_rate WHERE time >= :startTime ORDER BY time DESC")
-    fun getHeartRates(startTime: Instant): Flow<List<HeartRateEntity>>
-
-    // PRIVACY COMPLIANCE: Cancellazione fisica per DeletionChange
-    @Query("DELETE FROM heart_rate WHERE id = :recordId")
-    suspend fun deleteHeartRateById(recordId: String)
     
     // --- HEART RATE SESSION (Optimized for HRV) ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
