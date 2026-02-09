@@ -319,89 +319,149 @@ class HealthSyncWorker @AssistedInject constructor(
         val startTime = now.minus(COLD_START_DAYS, ChronoUnit.DAYS)
         
         try {
-            // Fetch tutti i tipi di dati
-            val steps = healthConnectManager.fetchSteps(startTime, now)
-            val heartRate = healthConnectManager.fetchHeartRate(startTime, now)
-            val sleep = healthConnectManager.fetchSleep(startTime, now)
-            val distance = healthConnectManager.fetchDistance(startTime, now)
-            val calories = healthConnectManager.fetchCalories(startTime, now)
-            val oxygen = healthConnectManager.fetchOxygenSaturation(startTime, now)
-            val exercise = healthConnectManager.fetchExercise(startTime, now)
-            val bmr = healthConnectManager.fetchBMR(startTime, now)
+            // Fetch e inserimento per ogni tipo di dato gestito individualmente
             
-            // Filtra per dispositivi affidabili e inserisci
-            val trustedSteps = TrustedDeviceFilter.filterTrusted(steps, { it.deviceType }, { it.sourcePackage })
-            healthDao.insertSteps(trustedSteps.map { raw ->
-                StepsEntity(
-                    id = raw.id,
-                    count = raw.count,
-                    startTime = Instant.ofEpochMilli(raw.startTime),
-                    endTime = Instant.ofEpochMilli(raw.endTime),
-                    source = raw.sourcePackage
-                )
-            })
-            
-            // HEART RATE SESSIONS (offset-based)
-            val trustedHeartRate = TrustedDeviceFilter.filterTrusted(heartRate, { it.deviceType }, { it.sourcePackage })
-            healthDao.insertHeartRateSessions(trustedHeartRate.map { raw ->
-                val samples = raw.samples.map { HeartRateSample(offsetMs = it.offsetMs, bpm = it.bpm) }
-                HeartRateSessionEntity(
-                    id = raw.id,
-                    source = raw.sourcePackage,
-                    deviceType = raw.deviceType,
-                    startTime = Instant.ofEpochMilli(raw.startTime),
-                    endTime = Instant.ofEpochMilli(raw.endTime),
-                    samplesJson = Json.encodeToString(samples)
-                )
-            })
-            Log.d(TAG, "Inserted ${trustedHeartRate.size} heart rate sessions")
-            
-            // SLEEP
-            val trustedSleep = TrustedDeviceFilter.filterTrusted(sleep, { it.deviceType }, { it.sourcePackage })
-            trustedSleep.forEach { raw ->
-                val sessionEntity = SleepSessionEntity(
-                    id = raw.id,
-                    source = raw.sourcePackage,
-                    title = null,
-                    notes = null,
-                    startTime = Instant.ofEpochMilli(raw.startTime),
-                    endTime = Instant.ofEpochMilli(raw.endTime)
-                )
-                val stageEntities = raw.stages.map { stageDto ->
-                    SleepStageEntity(
-                        id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
-                        sleepSessionId = raw.id,
-                        source = raw.sourcePackage,
-                        stage = stageDto.stage,
-                        startTime = Instant.ofEpochMilli(stageDto.startTime),
-                        endTime = Instant.ofEpochMilli(stageDto.endTime)
+            // A. STEPS
+            runCatching {
+                val steps = healthConnectManager.fetchSteps(startTime, now)
+                val trustedSteps = TrustedDeviceFilter.filterTrusted(steps, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertSteps(trustedSteps.map { raw ->
+                    StepsEntity(
+                        id = raw.id,
+                        count = raw.count,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime),
+                        source = raw.sourcePackage
                     )
+                })
+                Log.d(TAG, "Inserted ${trustedSteps.size} steps records")
+            }.onFailure { e -> Log.e(TAG, "Error syncing steps", e) }
+            
+            // B. HEART RATE
+            runCatching {
+                val heartRate = healthConnectManager.fetchHeartRate(startTime, now)
+                val trustedHeartRate = TrustedDeviceFilter.filterTrusted(heartRate, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertHeartRateSessions(trustedHeartRate.map { raw ->
+                    val samples = raw.samples.map { HeartRateSample(offsetMs = it.offsetMs, bpm = it.bpm) }
+                    HeartRateSessionEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        deviceType = raw.deviceType,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime),
+                        samplesJson = Json.encodeToString(samples)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedHeartRate.size} heart rate sessions")
+            }.onFailure { e -> Log.e(TAG, "Error syncing heart rate", e) }
+
+            // C. SLEEP
+            runCatching {
+                val sleep = healthConnectManager.fetchSleep(startTime, now)
+                val trustedSleep = TrustedDeviceFilter.filterTrusted(sleep, { it.deviceType }, { it.sourcePackage })
+                trustedSleep.forEach { raw ->
+                    val sessionEntity = SleepSessionEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        title = null,
+                        notes = null,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime)
+                    )
+                    val stageEntities = raw.stages.map { stageDto ->
+                        SleepStageEntity(
+                            id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
+                            sleepSessionId = raw.id,
+                            source = raw.sourcePackage,
+                            stage = stageDto.stage,
+                            startTime = Instant.ofEpochMilli(stageDto.startTime),
+                            endTime = Instant.ofEpochMilli(stageDto.endTime)
+                        )
+                    }
+                    sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
                 }
-                sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
-            }
+                Log.d(TAG, "Inserted ${trustedSleep.size} sleep sessions")
+            }.onFailure { e -> Log.e(TAG, "Error syncing sleep", e) }
             
-            // DISTANCE, CALORIES, OXYGEN, etc.
-            val trustedDistance = TrustedDeviceFilter.filterTrusted(distance, { it.deviceType }, { it.sourcePackage })
-            healthDao.insertDistances(trustedDistance.map { raw ->
-                DistanceEntity(
-                    id = raw.id,
-                    source = raw.sourcePackage,
-                    distanceMeters = raw.distanceMeters,
-                    startTime = Instant.ofEpochMilli(raw.startTime),
-                    endTime = Instant.ofEpochMilli(raw.endTime)
-                )
-            })
+            // D. DISTANCE
+            runCatching {
+                val distance = healthConnectManager.fetchDistance(startTime, now)
+                val trustedDistance = TrustedDeviceFilter.filterTrusted(distance, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertDistances(trustedDistance.map { raw ->
+                    DistanceEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        distanceMeters = raw.distanceMeters,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedDistance.size} distance records")
+            }.onFailure { e -> Log.e(TAG, "Error syncing distance", e) }
             
-            val trustedCalories = TrustedDeviceFilter.filterTrusted(calories, { it.deviceType }, { it.sourcePackage })
-            healthDao.insertCalories(trustedCalories.map { raw ->
-                CaloriesEntity(
-                    id = raw.id,
-                    source = raw.sourcePackage,
-                    energyKilocalories = raw.kilocalories,
-                    startTime = Instant.ofEpochMilli(raw.startTime),
-                    endTime = Instant.ofEpochMilli(raw.endTime)
-                )
-            })
+            // E. CALORIES
+            runCatching {
+                val calories = healthConnectManager.fetchCalories(startTime, now)
+                val trustedCalories = TrustedDeviceFilter.filterTrusted(calories, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertCalories(trustedCalories.map { raw ->
+                    CaloriesEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        energyKilocalories = raw.kilocalories,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedCalories.size} calories records")
+            }.onFailure { e -> Log.e(TAG, "Error syncing calories", e) }
+
+            // F. OXYGEN
+            runCatching {
+                val oxygen = healthConnectManager.fetchOxygenSaturation(startTime, now)
+                val trustedOxygen = TrustedDeviceFilter.filterTrusted(oxygen, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertOxygen(trustedOxygen.map { raw ->
+                    OxygenSaturationEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        percentage = raw.percentage,
+                        time = Instant.ofEpochMilli(raw.startTime)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedOxygen.size} oxygen records")
+            }.onFailure { e -> Log.e(TAG, "Error syncing oxygen", e) }
+
+            // G. EXERCISE
+            runCatching {
+                val exercise = healthConnectManager.fetchExercise(startTime, now)
+                val trustedExercise = TrustedDeviceFilter.filterTrusted(exercise, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertExercises(trustedExercise.map { raw ->
+                    ExerciseSessionEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        exerciseType = raw.type,
+                        title = raw.title,
+                        notes = raw.notes,
+                        startTime = Instant.ofEpochMilli(raw.startTime),
+                        endTime = Instant.ofEpochMilli(raw.endTime)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedExercise.size} exercise sessions")
+            }.onFailure { e -> Log.e(TAG, "Error syncing exercises", e) }
+
+            // H. BMR
+            runCatching {
+                val bmr = healthConnectManager.fetchBMR(startTime, now)
+                val trustedBmr = TrustedDeviceFilter.filterTrusted(bmr, { it.deviceType }, { it.sourcePackage })
+                healthDao.insertBmr(trustedBmr.map { raw ->
+                    BasalMetabolicRateEntity(
+                        id = raw.id,
+                        source = raw.sourcePackage,
+                        energyKilocaloriesPerDay = raw.kcalPerDay,
+                        time = Instant.ofEpochMilli(raw.startTime)
+                    )
+                })
+                Log.d(TAG, "Inserted ${trustedBmr.size} BMR records")
+            }.onFailure { e -> Log.e(TAG, "Error syncing BMR", e) }
             
             // Ottieni nuovo token per future sync differenziali
             val newToken = healthConnectManager.getChangesToken()
@@ -413,7 +473,7 @@ class HealthSyncWorker @AssistedInject constructor(
                 )
             )
             
-            Log.d(TAG, "Cold-start sync completed. Fetched ${steps.size} steps, ${heartRate.size} HR sessions, ${sleep.size} sleep sessions")
+            Log.d(TAG, "Cold-start sync completed successfully.")
             return Result.success()
             
         } catch (e: Exception) {

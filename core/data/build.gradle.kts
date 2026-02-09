@@ -38,7 +38,7 @@ dependencies {
 
     // SQLCipher for encrypted database (Privacy-Proof)
     // Note: Using new sqlcipher-android artifact (android-database-sqlcipher is deprecated)
-    implementation("net.zetetic:sqlcipher-android:4.6.0")
+    implementation("net.zetetic:sqlcipher-android:4.6.1")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     // Security-Crypto for passphrase storage (MasterKey + EncryptedSharedPreferences)
