@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Process
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -14,6 +15,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ai_health.core.data.sync.HealthSyncScheduler
 import com.ai_health.core.health.HealthConnectManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,10 +37,12 @@ data class OnboardingUiState(
 class OnboardingViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val healthConnectManager: HealthConnectManager,
+    private val syncScheduler: HealthSyncScheduler,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     companion object {
+        private const val TAG = "OnboardingViewModel"
         private const val KEY_CURRENT_STEP = "current_step"
     }
 
@@ -76,6 +80,15 @@ class OnboardingViewModel @Inject constructor(
             }
             
             _uiState.update { it.copy(permissionStatuses = statuses) }
+            
+            // PRIVACY-PROOF: Trigger sync when Health Connect permissions are granted
+            val healthConnectStep = OnboardingStep.getAllSteps().find { 
+                it.permissionType is PermissionType.HealthConnectPermission 
+            }
+            if (healthConnectStep != null && statuses[healthConnectStep] == PermissionStatus.Granted) {
+                Log.d(TAG, "Health Connect permissions granted, triggering sync")
+                syncScheduler.scheduleForegroundSync()
+            }
         }
     }
 

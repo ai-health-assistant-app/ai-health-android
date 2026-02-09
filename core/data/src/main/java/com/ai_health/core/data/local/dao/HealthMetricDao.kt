@@ -4,12 +4,12 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
 import com.ai_health.core.data.local.entity.ExerciseSessionEntity
-import com.ai_health.core.data.local.entity.HeartRateEntity
+
+import com.ai_health.core.data.local.entity.HeartRateSessionEntity
 import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.StepsEntity
 import kotlinx.coroutines.flow.Flow
@@ -21,12 +21,18 @@ import java.time.Instant
 @Dao
 interface HealthMetricDao {
 
-    // --- HEART RATE ---
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertHeartRates(entities: List<HeartRateEntity>)
+    // --- HEART RATE (Legacy) ---
 
-    @Query("SELECT * FROM heart_rate WHERE time >= :startTime ORDER BY time DESC")
-    fun getHeartRates(startTime: Instant): Flow<List<HeartRateEntity>>
+    
+    // --- HEART RATE SESSION (Optimized for HRV) ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHeartRateSessions(entities: List<HeartRateSessionEntity>)
+    
+    @Query("SELECT * FROM heart_rate_sessions WHERE startTime >= :startTime ORDER BY startTime DESC")
+    fun getHeartRateSessions(startTime: Instant): Flow<List<HeartRateSessionEntity>>
+    
+    @Query("DELETE FROM heart_rate_sessions WHERE id = :recordId")
+    suspend fun deleteHeartRateSessionById(recordId: String)
 
 
     // --- STEPS ---
@@ -36,12 +42,18 @@ interface HealthMetricDao {
     @Query("SELECT * FROM steps WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getSteps(startTime: Instant): Flow<List<StepsEntity>>
 
+    @Query("DELETE FROM steps WHERE id = :recordId")
+    suspend fun deleteStepsById(recordId: String)
+
     // --- CALORIES ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCalories(entities: List<CaloriesEntity>)
 
     @Query("SELECT * FROM calories WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getCalories(startTime: Instant): Flow<List<CaloriesEntity>>
+
+    @Query("DELETE FROM calories WHERE id = :recordId")
+    suspend fun deleteCaloriesById(recordId: String)
 
 
     // --- DISTANCE ---
@@ -51,6 +63,9 @@ interface HealthMetricDao {
     @Query("SELECT * FROM distance WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getDistances(startTime: Instant): Flow<List<DistanceEntity>>
 
+    @Query("DELETE FROM distance WHERE id = :recordId")
+    suspend fun deleteDistanceById(recordId: String)
+
 
     // --- OXYGEN ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -58,6 +73,9 @@ interface HealthMetricDao {
 
     @Query("SELECT * FROM oxygen_saturation WHERE time >= :startTime ORDER BY time DESC")
     fun getOxygenSaturation(startTime: Instant): Flow<List<OxygenSaturationEntity>>
+
+    @Query("DELETE FROM oxygen_saturation WHERE id = :recordId")
+    suspend fun deleteOxygenById(recordId: String)
     
     // --- BMR ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -66,6 +84,9 @@ interface HealthMetricDao {
     @Query("SELECT * FROM basal_metabolic_rate WHERE time >= :startTime ORDER BY time DESC")
     fun getBmr(startTime: Instant): Flow<List<BasalMetabolicRateEntity>>
 
+    @Query("DELETE FROM basal_metabolic_rate WHERE id = :recordId")
+    suspend fun deleteBmrById(recordId: String)
+
     // --- EXERCISE ---
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExercises(entities: List<ExerciseSessionEntity>)
@@ -73,40 +94,6 @@ interface HealthMetricDao {
     @Query("SELECT * FROM exercise_sessions WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getExercises(startTime: Instant): Flow<List<ExerciseSessionEntity>>
 
-    // --- HELPER METHODS ---
-
-    @Query("SELECT COUNT(*) FROM steps WHERE startTime >= :start AND startTime < :end")
-    suspend fun getStepsCountForIntervall(start: Instant, end: Instant): Int
-
-    @Transaction
-    suspend fun deleteRecordById(id: String) {
-        deleteStepById(id)
-        deleteHeartRateById(id)
-        deleteCaloriesById(id)
-        deleteDistanceById(id)
-        deleteOxygenById(id)
-        deleteExerciseById(id)
-        deleteBmrById(id)
-    }
-
-    @Query("DELETE FROM steps WHERE id = :id")
-    suspend fun deleteStepById(id: String)
-
-    @Query("DELETE FROM heart_rate WHERE id = :id")
-    suspend fun deleteHeartRateById(id: String)
-
-    @Query("DELETE FROM calories WHERE id = :id")
-    suspend fun deleteCaloriesById(id: String)
-
-    @Query("DELETE FROM distance WHERE id = :id")
-    suspend fun deleteDistanceById(id: String)
-
-    @Query("DELETE FROM oxygen_saturation WHERE id = :id")
-    suspend fun deleteOxygenById(id: String)
-
-    @Query("DELETE FROM exercise_sessions WHERE id = :id")
-    suspend fun deleteExerciseById(id: String)
-
-    @Query("DELETE FROM basal_metabolic_rate WHERE id = :id")
-    suspend fun deleteBmrById(id: String)
+    @Query("DELETE FROM exercise_sessions WHERE id = :recordId")
+    suspend fun deleteExerciseById(recordId: String)
 }

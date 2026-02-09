@@ -33,6 +33,8 @@ interface SleepDao {
         insertStages(stages)
     }
 
-    @Query("DELETE FROM sleep_sessions WHERE id = :id")
-    suspend fun deleteSessionById(id: String)
+    // PRIVACY COMPLIANCE: Cancellazione fisica per DeletionChange
+    // SleepStageEntity ha ForeignKey con onDelete = CASCADE, quindi le stages vengono eliminate automaticamente
+    @Query("DELETE FROM sleep_sessions WHERE id = :recordId")
+    suspend fun deleteSleepSessionById(recordId: String)
 }

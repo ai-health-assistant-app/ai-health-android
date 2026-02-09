@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.health.connect.client.HealthConnectClient
 import com.ai_health.assistant.navigation.AppNavHost
+import com.ai_health.core.data.sync.HealthSyncScheduler
 import com.ai_health.ui.theme.AssistantTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Main entry point for the AI Health Assistant application.
@@ -20,6 +22,10 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var syncScheduler: HealthSyncScheduler
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -32,6 +38,9 @@ class MainActivity : ComponentActivity() {
         // Note: This check is performed but not currently used
         // Future enhancement: Show appropriate UI if SDK is unavailable
         val availability = HealthConnectClient.getSdkStatus(this)
+        
+        // NOTE: Sync is now triggered from OnboardingViewModel/DashboardViewModel
+        // AFTER Health Connect permissions are confirmed
 
         setContent {
             AssistantTheme {

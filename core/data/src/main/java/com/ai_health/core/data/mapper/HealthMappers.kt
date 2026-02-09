@@ -4,7 +4,8 @@ import com.ai_health.core.data.local.entity.BasalMetabolicRateEntity
 import com.ai_health.core.data.local.entity.CaloriesEntity
 import com.ai_health.core.data.local.entity.DistanceEntity
 import com.ai_health.core.data.local.entity.ExerciseSessionEntity
-import com.ai_health.core.data.local.entity.HeartRateEntity
+import com.ai_health.core.data.local.entity.HeartRateSessionEntity
+import com.ai_health.core.data.local.entity.HeartRateSample
 import com.ai_health.core.data.local.entity.OxygenSaturationEntity
 import com.ai_health.core.data.local.entity.SleepSessionEntity
 import com.ai_health.core.data.local.entity.SleepSessionWithStages
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
+import kotlinx.serialization.json.Json
 
 object HealthMappers {
 
@@ -38,22 +40,25 @@ object HealthMappers {
     }
 
     // --- Heart Rate ---
-    fun HeartRateRec.toEntity(): HeartRateEntity {
-        return HeartRateEntity(
-            id = this.id,
-            beatsPerMinute = this.beatsPerMinute,
-            time = this.time,
-            source = this.source
-        )
-    }
-
-    fun HeartRateEntity.toDomain(): HeartRateRec {
-        return HeartRateRec(
-            id = this.id,
-            beatsPerMinute = this.beatsPerMinute,
-            time = this.time,
-            source = this.source
-        )
+    // NO toEntity() needed for domain->entity in this direction for now, 
+    // as we usually sync FROM Health Connect TO DB (entity).
+    // If we need to save manual HR, we'd need a different approach or create a session.
+    
+    fun HeartRateSessionEntity.toDomainList(): List<HeartRateRec> {
+        return try {
+            val samples = Json.decodeFromString<List<HeartRateSample>>(this.samplesJson)
+            samples.map { sample ->
+                HeartRateRec(
+                    // Generate unique ID for each point based on session ID and offset
+                    id = "${this.id}_${sample.offsetMs}",
+                    beatsPerMinute = sample.bpm.toLong(),
+                    time = this.startTime.plusMillis(sample.offsetMs.toLong()),
+                    source = this.source
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     // --- Steps ---
