@@ -16,8 +16,10 @@ data class StepsEntity(
     val id: String,
     val count: Long,
     val startTime: Instant,
+
     val endTime: Instant,
-    val source: String
+    val source: String,
+    val deviceType: String?
 )
 
 @Entity(tableName = "exercise_sessions")
@@ -29,7 +31,8 @@ data class ExerciseSessionEntity(
     val title: String?,
     val notes: String?,
     val startTime: Instant,
-    val endTime: Instant
+    val endTime: Instant,
+    val deviceType: String?
 )
 
 @Entity(tableName = "oxygen_saturation")
@@ -38,7 +41,8 @@ data class OxygenSaturationEntity(
     val id: String,
     val source: String,
     val percentage: Double,
-    val time: Instant
+    val time: Instant,
+    val deviceType: String?
 )
 
 @Entity(tableName = "distance")
@@ -48,7 +52,8 @@ data class DistanceEntity(
     val source: String,
     val distanceMeters: Double,
     val startTime: Instant,
-    val endTime: Instant
+    val endTime: Instant,
+    val deviceType: String?
 )
 
 @Entity(tableName = "calories")
@@ -58,7 +63,8 @@ data class CaloriesEntity(
     val source: String,
     val energyKilocalories: Double,
     val startTime: Instant,
-    val endTime: Instant
+    val endTime: Instant,
+    val deviceType: String?
 )
 
 @Entity(tableName = "basal_metabolic_rate")
@@ -67,5 +73,6 @@ data class BasalMetabolicRateEntity(
     val id: String,
     val source: String,
     val energyKilocaloriesPerDay: Double,
-    val time: Instant
+    val time: Instant,
+    val deviceType: String?
 )

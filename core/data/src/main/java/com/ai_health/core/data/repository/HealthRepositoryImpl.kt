@@ -72,7 +72,8 @@ class HealthRepositoryImpl @Inject constructor(
                  count = it.count,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertSteps(stepEntities)
@@ -105,6 +106,7 @@ class HealthRepositoryImpl @Inject constructor(
                  startTime = Instant.ofEpochMilli(sessionDto.startTime),
                  endTime = Instant.ofEpochMilli(sessionDto.endTime),
                  source = sessionDto.sourcePackage,
+                 deviceType = sessionDto.deviceType
              )
              
              // If DTO has stages
@@ -115,7 +117,8 @@ class HealthRepositoryImpl @Inject constructor(
                     source = sessionEntity.source,
                      stage = stageDto.stage,
                      startTime = Instant.ofEpochMilli(stageDto.startTime),
-                     endTime = Instant.ofEpochMilli(stageDto.endTime)
+                     endTime = Instant.ofEpochMilli(stageDto.endTime),
+                     deviceType = sessionDto.deviceType
                  )
              }.toList<com.ai_health.core.data.local.entity.SleepStageEntity>()
              
@@ -151,7 +154,8 @@ class HealthRepositoryImpl @Inject constructor(
                  energyKilocalories = it.kilocalories,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertCalories(calEntities)
@@ -165,7 +169,8 @@ class HealthRepositoryImpl @Inject constructor(
                  distanceMeters = it.distanceMeters,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertDistances(distEntities)
@@ -178,7 +183,8 @@ class HealthRepositoryImpl @Inject constructor(
                  id = it.id,
                  percentage = it.percentage,
                  time = Instant.ofEpochMilli(it.startTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertOxygen(oxyEntities)
@@ -194,7 +200,8 @@ class HealthRepositoryImpl @Inject constructor(
                  notes = it.notes,
                  startTime = Instant.ofEpochMilli(it.startTime),
                  endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertExercises(exEntities)
@@ -207,7 +214,8 @@ class HealthRepositoryImpl @Inject constructor(
                  id = it.id,
                  energyKilocaloriesPerDay = it.kcalPerDay,
                  time = Instant.ofEpochMilli(it.startTime),
-                 source = it.sourcePackage
+                 source = it.sourcePackage,
+                 deviceType = it.deviceType
              )
         }
         healthDao.insertBmr(bmrEntities)

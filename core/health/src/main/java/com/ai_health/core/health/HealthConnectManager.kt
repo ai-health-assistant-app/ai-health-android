@@ -341,7 +341,8 @@ class HealthConnectManager(private val context: Context) {
                             startTime = stageRecord.startTime.toEpochMilli(),
                             endTime = stageRecord.endTime.toEpochMilli()
                         )
-                    }
+                    },
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -361,7 +362,8 @@ class HealthConnectManager(private val context: Context) {
                     percentage = record.percentage.value,
                     startTime = record.time.toEpochMilli(), 
                     endTime = record.time.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -381,7 +383,8 @@ class HealthConnectManager(private val context: Context) {
                     distanceMeters = record.distance.inMeters,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -401,7 +404,8 @@ class HealthConnectManager(private val context: Context) {
                     kilocalories = record.energy.inKilocalories,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -421,7 +425,8 @@ class HealthConnectManager(private val context: Context) {
                     kcalPerDay = record.basalMetabolicRate.inKilocaloriesPerDay,
                     startTime = record.time.toEpochMilli(), 
                     endTime = record.time.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
@@ -445,7 +450,8 @@ class HealthConnectManager(private val context: Context) {
                     notes = record.notes,
                     startTime = record.startTime.toEpochMilli(),
                     endTime = record.endTime.toEpochMilli(),
-                    sourcePackage = record.metadata.dataOrigin.packageName
+                    sourcePackage = record.metadata.dataOrigin.packageName,
+                    deviceType = getDeviceType(record.metadata.device)
                 )
             }
         } catch (e: Exception) {
