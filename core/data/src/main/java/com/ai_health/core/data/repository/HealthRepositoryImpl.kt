@@ -40,9 +40,8 @@ class HealthRepositoryImpl @Inject constructor(
     override suspend fun syncHealthData() {
         if (!healthConnectManager.hasAllPermissions()) return
 
-
-        val TAG = "HealthDebug"
-        Log.d(TAG, "Starting syncHealthData")
+        val TAG = "HealthSync"
+        Log.d(TAG, "Starting fault-tolerant syncHealthData")
 
         val now = Instant.now()
         val startOfToday = java.time.LocalDate.now()
@@ -56,78 +55,96 @@ class HealthRepositoryImpl @Inject constructor(
         val stepsCount = healthDao.getStepsCount()
         
         val isColdStart = sleepCount == 0 && stepsCount == 0
-        
         val daysToFetch = if (isColdStart) 30L else 1L
         
         Log.d(TAG, "Sync strategy: ColdStart=$isColdStart (sleep=$sleepCount, steps=$stepsCount). Fetching last $daysToFetch days.")
 
         val fetchStart = startOfToday.minus(daysToFetch, ChronoUnit.DAYS)
 
-        // A. STEPS
+        // --- FAULT-TOLERANT SYNC ---
+        // Each data type syncs independently. Failures in one won't block others.
+        val results = listOf(
+            "Steps" to syncSteps(fetchStart, now),
+            "Sleep" to syncSleep(fetchStart, now),
+            "HeartRate" to syncHeartRate(fetchStart, now),
+            "Calories" to syncCalories(fetchStart, now),
+            "Distance" to syncDistance(fetchStart, now),
+            "Oxygen" to syncOxygen(fetchStart, now),
+            "Exercise" to syncExercise(fetchStart, now),
+            "BMR" to syncBMR(fetchStart, now)
+        )
+        
+        // Aggregate results and log
+        var successCount = 0
+        var failureCount = 0
+        
+        results.forEach { (dataType, result) ->
+            result.fold(
+                onSuccess = { count ->
+                    successCount++
+                    Log.d(TAG, "✓ Synced $count $dataType records")
+                },
+                onFailure = { e ->
+                    failureCount++
+                    Log.e(TAG, "✗ Failed to sync $dataType: ${e.message}", e)
+                }
+            )
+        }
+        
+        Log.i(TAG, "Sync complete: $successCount succeeded, $failureCount failed")
+    }
+
+    // --- INDIVIDUAL SYNC METHODS ---
+    // Each method is fault-tolerant and returns Result<Int> with count of synced records
+    
+    private suspend fun syncSteps(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val steps = healthConnectManager.fetchSteps(fetchStart, now)
-        Log.d(TAG, "Fetched ${steps.size} steps records")
         val stepEntities = steps.map {
-             com.ai_health.core.data.local.entity.StepsEntity(
-                 id = it.id,
-                 count = it.count,
-                 startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.StepsEntity(
+                id = it.id,
+                count = it.count,
+                startTime = Instant.ofEpochMilli(it.startTime),
+                endTime = Instant.ofEpochMilli(it.endTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertSteps(stepEntities)
+        stepEntities.size
+    }
 
-        // B. SLEEP
+    private suspend fun syncSleep(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val sleep = healthConnectManager.fetchSleep(fetchStart, now)
-        Log.d(TAG, "Fetched ${sleep.size} sleep sessions")
         sleep.forEach { sessionDto ->
-            // Previous: sessionDto had durationMinutes, startTime, endTime, stage, sourcePackage.
-            // Wait, previous file line 45: `rawSleep.map { dto -> ... metadata = "Stage: ${dto.stage}"`.
-            // It seems `fetchSleep` returned a flat list of sleep records? Or sessions? 
-            // "metadata = Stage: ${dto.stage}" suggests maybe it was mixed or just stages. 
-            // But usually SleepSession has stages.
-            // If the DTO is flat, I need to group them if I want sessions.
-            // User said: "SleepSessionRec... implementa relazione 1-a-molti: SleepSessionEntity e SleepStageEntity".
-            // If `healthConnectManager` returns flat stages or sessions, I need to handle it.
-            // Assuming `fetchSleep` returns `List<SleepSessionRecord>` where each has `stages`.
-            // OR `List<SleepSession>` which has `stages`.
-            // Without seeing `HealthConnectManager`, I'll assume a structure that supports the requirement. 
-            // If it was flat stages before, I might need to synthesize sessions.
-            // However, previous code: `dto.durationMinutes`. 
-            // I will assume `sessionDto` corresponds to a session and I can extract stages. 
-            // IF NOT, I will have to fix this later.
-            // For now, I'll assume I can construct a SleepSessionEntity.
+            val sessionEntity = com.ai_health.core.data.local.entity.SleepSessionEntity(
+                id = sessionDto.id,
+                title = null,
+                notes = null,
+                startTime = Instant.ofEpochMilli(sessionDto.startTime),
+                endTime = Instant.ofEpochMilli(sessionDto.endTime),
+                source = sessionDto.sourcePackage,
+                deviceType = sessionDto.deviceType
+            )
             
-             val sessionEntity = com.ai_health.core.data.local.entity.SleepSessionEntity(
-                 id = sessionDto.id,
-                 title = null, 
-                 notes = null,
-                 startTime = Instant.ofEpochMilli(sessionDto.startTime),
-                 endTime = Instant.ofEpochMilli(sessionDto.endTime),
-                 source = sessionDto.sourcePackage,
-                 deviceType = sessionDto.deviceType
-             )
-             
-             // If DTO has stages
-             val stageEntities = sessionDto.stages.map { stageDto ->
-                 com.ai_health.core.data.local.entity.SleepStageEntity(
-                     id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
-                     sleepSessionId = sessionEntity.id,
+            val stageEntities = sessionDto.stages.map { stageDto ->
+                com.ai_health.core.data.local.entity.SleepStageEntity(
+                    id = HealthMappers.generateId("SLEEP_STAGE", Instant.ofEpochMilli(stageDto.startTime)),
+                    sleepSessionId = sessionEntity.id,
                     source = sessionEntity.source,
-                     stage = stageDto.stage,
-                     startTime = Instant.ofEpochMilli(stageDto.startTime),
-                     endTime = Instant.ofEpochMilli(stageDto.endTime),
-                     deviceType = sessionDto.deviceType
-                 )
-             }.toList<com.ai_health.core.data.local.entity.SleepStageEntity>()
-             
-             sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
+                    stage = stageDto.stage,
+                    startTime = Instant.ofEpochMilli(stageDto.startTime),
+                    endTime = Instant.ofEpochMilli(stageDto.endTime),
+                    deviceType = sessionDto.deviceType
+                )
+            }
+            
+            sleepDao.insertSleepWithStages(sessionEntity, stageEntities)
         }
+        sleep.size
+    }
 
-        // C. HEART RATE (Optimized: usa HeartRateSessionEntity)
+    private suspend fun syncHeartRate(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val heart = healthConnectManager.fetchHeartRate(fetchStart, now)
-        Log.d(TAG, "Fetched ${heart.size} heart rate sessions")
         val heartEntities = heart.map { raw ->
             val samples = raw.samples.map { 
                 HeartRateSample(offsetMs = it.offsetMs, bpm = it.bpm) 
@@ -144,82 +161,90 @@ class HealthRepositoryImpl @Inject constructor(
             )
         }
         healthDao.insertHeartRateSessions(heartEntities)
-        
-        // D. CALORIES
+        heartEntities.size
+    }
+
+    private suspend fun syncCalories(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val calories = healthConnectManager.fetchCalories(fetchStart, now)
-        Log.d(TAG, "Fetched ${calories.size} calories records")
         val calEntities = calories.map {
-             com.ai_health.core.data.local.entity.CaloriesEntity(
-                 id = it.id,
-                 energyKilocalories = it.kilocalories,
-                 startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.CaloriesEntity(
+                id = it.id,
+                energyKilocalories = it.kilocalories,
+                startTime = Instant.ofEpochMilli(it.startTime),
+                endTime = Instant.ofEpochMilli(it.endTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertCalories(calEntities)
+        calEntities.size
+    }
 
-        // E. DISTANCE
+    private suspend fun syncDistance(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val distance = healthConnectManager.fetchDistance(fetchStart, now)
-        Log.d(TAG, "Fetched ${distance.size} distance records")
         val distEntities = distance.map {
-             com.ai_health.core.data.local.entity.DistanceEntity(
-                 id = it.id,
-                 distanceMeters = it.distanceMeters,
-                 startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.DistanceEntity(
+                id = it.id,
+                distanceMeters = it.distanceMeters,
+                startTime = Instant.ofEpochMilli(it.startTime),
+                endTime = Instant.ofEpochMilli(it.endTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertDistances(distEntities)
-        
-        // F. OXYGEN
+        distEntities.size
+    }
+
+    private suspend fun syncOxygen(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val oxygen = healthConnectManager.fetchOxygenSaturation(fetchStart, now)
-        Log.d(TAG, "Fetched ${oxygen.size} oxygen records")
         val oxyEntities = oxygen.map {
-             com.ai_health.core.data.local.entity.OxygenSaturationEntity(
-                 id = it.id,
-                 percentage = it.percentage,
-                 time = Instant.ofEpochMilli(it.startTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.OxygenSaturationEntity(
+                id = it.id,
+                percentage = it.percentage,
+                time = Instant.ofEpochMilli(it.startTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertOxygen(oxyEntities)
-        
-        // G. EXERCISE
+        oxyEntities.size
+    }
+
+    private suspend fun syncExercise(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val exercise = healthConnectManager.fetchExercise(fetchStart, now)
-        Log.d(TAG, "Fetched ${exercise.size} exercise records")
         val exEntities = exercise.map {
-             com.ai_health.core.data.local.entity.ExerciseSessionEntity(
-                 id = it.id,
-                 exerciseType = it.type,
-                 title = it.title,
-                 notes = it.notes,
-                 startTime = Instant.ofEpochMilli(it.startTime),
-                 endTime = Instant.ofEpochMilli(it.endTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.ExerciseSessionEntity(
+                id = it.id,
+                exerciseType = it.type,
+                title = it.title,
+                notes = it.notes,
+                startTime = Instant.ofEpochMilli(it.startTime),
+                endTime = Instant.ofEpochMilli(it.endTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertExercises(exEntities)
-        
-        // H. BMR
+        exEntities.size
+    }
+
+    private suspend fun syncBMR(fetchStart: Instant, now: Instant): Result<Int> = runCatching {
         val bmr = healthConnectManager.fetchBMR(fetchStart, now)
-        Log.d(TAG, "Fetched ${bmr.size} BMR records")
         val bmrEntities = bmr.map {
-             com.ai_health.core.data.local.entity.BasalMetabolicRateEntity(
-                 id = it.id,
-                 energyKilocaloriesPerDay = it.kcalPerDay,
-                 time = Instant.ofEpochMilli(it.startTime),
-                 source = it.sourcePackage,
-                 deviceType = it.deviceType
-             )
+            com.ai_health.core.data.local.entity.BasalMetabolicRateEntity(
+                id = it.id,
+                energyKilocaloriesPerDay = it.kcalPerDay,
+                time = Instant.ofEpochMilli(it.startTime),
+                source = it.sourcePackage,
+                deviceType = it.deviceType
+            )
         }
         healthDao.insertBmr(bmrEntities)
+        bmrEntities.size
     }
+
+
 
     override fun getStepsHistory(startTime: Instant): Flow<List<StepsRec>> {
         return healthDao.getSteps(startTime).map { list -> list.map { it.toDomain() } }
