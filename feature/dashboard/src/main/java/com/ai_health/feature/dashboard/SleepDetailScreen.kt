@@ -146,6 +146,10 @@ private fun SleepDetailContent(
     session: SleepSessionRec,
     analysis: SleepQualityResult
 ) {
+    // Generiamo il feedback al volo qui
+    val insightText = remember(analysis) { SleepFeedbackGenerator.getInsight(analysis) }
+    val headlineText = remember(analysis) { SleepFeedbackGenerator.getHeadline(analysis.totalScore) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -160,17 +164,28 @@ private fun SleepDetailContent(
         // Sleep Score Indicator
         SleepScoreCircle(score = analysis.totalScore)
 
-        // Feedback
-        Text(
-            text = analysis.feedback,
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.White,
-            textAlign = TextAlign.Center,
+        // --- NUOVO BLOCCO FEEDBACK ---
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF1E293B), RoundedCornerShape(12.dp))
                 .padding(16.dp)
-        )
+        ) {
+            Text(
+                text = headlineText,
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF38BDF8), // Light Blue
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Text(
+                text = insightText, // Usiamo il testo generato, non quello del DB
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+                textAlign = TextAlign.Center
+            )
+        }
 
         // Score Breakdown Section (if available)
         analysis.breakdown?.let { breakdown ->
@@ -503,29 +518,45 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Text(
+                text = "Fattori del Riposo",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+
+            // 1. Architecture -> "Profondità del Sonno"
+            // L'utente capisce che riguarda quanto bene ha dormito, non le fasi tecniche.
             ScoreProgressRow(
-                label = "Architettura",
+                label = "Profondità",
                 score = breakdown.architectureScore,
                 maxScore = 40.0,
-                color = Color(0xFF3B82F6)
+                color = Color(0xFF3B82F6) // Blu
             )
+
+            // 2. Dipping -> "Recupero Fisico"
+            // Se il dipping è basso, il recupero è basso. Niente panico medico.
             ScoreProgressRow(
-                label = "HR Dipping",
+                label = "Recupero Fisico",
                 score = breakdown.dippingScore,
                 maxScore = 30.0,
-                color = Color(0xFF10B981)
+                color = Color(0xFF10B981) // Verde
             )
+
+            // 3. RHR -> "Rilassamento Cardiaco"
             ScoreProgressRow(
-                label = "RHR",
+                label = "Rilassamento",
                 score = breakdown.rhrScore,
                 maxScore = 20.0,
-                color = Color(0xFFF97316)
+                color = Color(0xFFF97316) // Arancio
             )
+
+            // 4. Timing Nadir -> "Allineamento Circadiano"
+            // Suona sofisticato ma non patologico. Indica se sei andato a letto all'ora giusta.
             ScoreProgressRow(
-                label = "Timing Nadir",
+                label = "Ritmo Circadiano",
                 score = breakdown.timingScore,
                 maxScore = 10.0,
-                color = Color(0xFF8B5CF6)
+                color = Color(0xFF8B5CF6) // Viola
             )
         }
     }
@@ -567,6 +598,48 @@ private fun ScoreProgressRow(
     }
 }
 
+object SleepFeedbackGenerator {
+    fun getInsight(analysis: SleepQualityResult): String {
+        val metrics = analysis.metrics
+        val score = analysis.totalScore
+
+        // 1. Controllo Prioritario: Stress Fisiologico (Dipping basso)
+        // Se il dipping è sotto il 10%, è il segnale più forte di "giornata no".
+        if (metrics?.dippingPercent != null && metrics.dippingPercent!! < 10.0) {
+            return "Il tuo recupero fisiologico è stato parziale stanotte. Questo accade spesso dopo pasti pesanti, alcol o attività fisica intensa serale. Oggi punta su idratazione e attività leggera."
+        }
+
+        // 2. Controllo Prioritario: Sonno Profondo insufficiente
+        // Assumiamo che meno del 10-15% sia poco (o meno di 45 min)
+        if (analysis.deepSleepDuration.toMinutes() < 45) {
+            return "La fase di rigenerazione profonda è stata breve. Per favorirla stasera, prova a oscurare completamente la stanza e mantenere una temperatura fresca (intorno ai 19°C)."
+        }
+
+        // 3. Controllo Prioritario: Troppi Risvegli (Frammentazione)
+        // Usiamo awakeDuration come proxy se non hai un indice di frammentazione
+        if (analysis.awakeDuration.toMinutes() > 60) {
+            return "Hai avuto diverse interruzioni del sonno. Evita schermi e luci blu nell'ora prima di dormire per aiutare la produzione di melatonina."
+        }
+
+        // 4. Fallback basato sul Punteggio Totale (Se non ci sono problemi specifici evidenti)
+        return when {
+            score >= 85 -> "Prestazione eccellente! I tuoi biometri indicano che sei pronto per affrontare una giornata impegnativa o un allenamento intenso."
+            score >= 70 -> "Buon equilibrio generale. Il tuo corpo ha recuperato le energie necessarie. Mantieni questa routine."
+            score >= 50 -> "Recupero sufficiente, ma c'è margine di miglioramento. Cerca di andare a letto alla stessa ora stasera per regolarizzare il ritmo."
+            else -> "Il corpo chiede tregua. I dati suggeriscono affaticamento accumulato. Prioritizza il riposo stasera."
+        }
+    }
+
+    fun getHeadline(score: Int): String {
+        return when {
+            score >= 90 -> "Batterie Cariche ⚡"
+            score >= 75 -> "Ben Riposato 🔋"
+            score >= 60 -> "Stabile ⚖️"
+            else -> "Serve Ricarica 🔌"
+        }
+    }
+}
+
 @Composable
 fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
     Card(
@@ -575,131 +648,118 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Dipping Row
-            metrics.dippingPercent?.let { dip ->
-                val dipColor = when {
-                    dip < 0 -> Color(0xFFEF4444) // Rosso - Reverse
-                    dip < 10 -> Color(0xFFFBBF24) // Giallo - Non-dipper
-                    dip <= 20 -> Color(0xFF10B981) // Verde - Normal
-                    else -> Color(0xFF3B82F6) // Blu - Extreme
-                }
-                val dipLabel = when {
-                    dip < 0 -> "Reverse Dipper ⚠️"
-                    dip < 10 -> "Non-Dipper"
-                    dip <= 20 -> "Normal Dipper ✓"
-                    else -> "Extreme Dipper"
-                }
-                HrMetricRow(
-                    label = "HR Dipping",
-                    value = "%.1f%%".format(dip),
-                    subtitle = dipLabel,
-                    color = dipColor
-                )
-            }
+            Text(
+                text = "Salute Cardiaca Notturna",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
 
-            // HR Averages
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // ROW 1: I dati "Grezi" sicuri (BPM)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Usiamo la media notturna (RHR approssimativo)
                 metrics.nocturnalHrAvg?.let { hr ->
                     HrMetricBox(
                         modifier = Modifier.weight(1f),
-                        label = "HR Notturna",
+                        label = "Media Notturna",
                         value = "$hr",
-                        unit = "bpm"
+                        unit = "bpm",
+                        icon = null // Qui potresti mettere un'icona cuore
                     )
                 }
-                metrics.daytimeHrAvg?.let { hr ->
-                    HrMetricBox(
-                        modifier = Modifier.weight(1f),
-                        label = "HR Diurna",
-                        value = "$hr",
-                        unit = "bpm"
-                    )
-                }
-            }
 
-            // Nadir
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Usiamo la minima assoluta (Lowest)
                 metrics.lowestNocturnalHr?.let { hr ->
                     HrMetricBox(
                         modifier = Modifier.weight(1f),
-                        label = "HR Minima",
+                        label = "Minima Assoluta",
                         value = "$hr",
-                        unit = "bpm"
-                    )
-                }
-                metrics.hrNadirOffsetPercent?.let { pos ->
-                    val posLabel = when (pos) {
-                        in 40..65 -> "Ottimale"
-                        in 30..75 -> "Buono"
-                        else -> "Da migliorare"
-                    }
-                    HrMetricBox(
-                        modifier = Modifier.weight(1f),
-                        label = "Posizione Nadir",
-                        value = "$pos%",
-                        unit = posLabel
+                        unit = "bpm",
+                        icon = null
                     )
                 }
             }
 
-            // Data Quality
-            Text(
-                text = "Qualità dati: ${"%.0f".format(metrics.dataQualityScore * 100)}%",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B),
-                modifier = Modifier.align(Alignment.End)
-            )
+            // ROW 2: L'Interpretazione (Black Box)
+            // Qui nascondiamo la logica complessa del Dipping/Nadir
+            // Mostriamo solo se il "Motore" si è riposato bene.
+
+            val dippingState = metrics.dippingPercent ?: 0.0
+
+            // Logica di traduzione "Whoop Style"
+            val (statusText, statusColor) = when {
+                dippingState < 0 -> "Sotto Sforzo" to Color(0xFFEF4444) // Era Reverse Dipper
+                dippingState < 10 -> "Recupero Parziale" to Color(0xFFFBBF24) // Era Non-Dipper
+                else -> "Recupero Ottimale" to Color(0xFF10B981) // Normal/Extreme
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF334155), RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Stato del Sistema Nervoso",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF94A3B8)
+                    )
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Un piccolo indicatore visivo minimalista
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .background(statusColor, RoundedCornerShape(50))
+                )
+            }
+
+            // Nota: Abbiamo rimosso completamente "Data Quality Score".
+            // Se i dati fanno schifo, l'utente vedrà "Sotto Sforzo" o "Recupero Parziale",
+            // che è comunque un consiglio valido (forse la band ha misurato male perché si muoveva troppo).
         }
     }
 }
 
-@Composable
-private fun HrMetricRow(
-    label: String,
-    value: String,
-    subtitle: String,
-    color: Color
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF94A3B8))
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = color)
-        }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleLarge,
-            color = color,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
 
 @Composable
 private fun HrMetricBox(
     modifier: Modifier = Modifier,
     label: String,
     value: String,
-    unit: String
+    unit: String,
+    icon: Any? // Placeholder per future icone
 ) {
     Column(
         modifier = modifier
-            .background(Color(0xFF374151), RoundedCornerShape(8.dp))
-            .padding(12.dp),
+            .background(Color(0xFF334155), RoundedCornerShape(8.dp)) // Grigio leggermente più chiaro
+            .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF94A3B8))
         Text(
             text = value,
             style = MaterialTheme.typography.headlineMedium,
             color = Color.White,
             fontWeight = FontWeight.Bold
         )
-        Text(text = unit, style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+        Text(
+            text = "$unit $label", // Es: "bpm Media Notturna"
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF94A3B8),
+            textAlign = TextAlign.Center
+        )
     }
 }
