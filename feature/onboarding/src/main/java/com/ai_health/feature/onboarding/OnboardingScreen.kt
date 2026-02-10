@@ -30,6 +30,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import com.ai_health.core.health.HealthConnectManager
+import com.ai_health.ui.theme.AppTheme
+import com.ai_health.ui.theme.AppDimensions
+import com.ai_health.ui.components.AppButton
+import com.ai_health.ui.components.ButtonVariant
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -41,13 +45,6 @@ fun OnboardingScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
-    // Dashboard color scheme
-    val backgroundColor = Color(0xFF0F172A)
-    val cardColor = Color(0xFF1E293B)
-    val accentColor = Color(0xFF38BDF8)
-    val textPrimary = Color.White
-    val textSecondary = Color(0xFF94A3B8)
     
     // Check if onboarding is already complete
     LaunchedEffect(Unit) {
@@ -99,13 +96,13 @@ fun OnboardingScreen(
     }
 
     Scaffold(
-        containerColor = backgroundColor,
+        containerColor = AppTheme.colors.backgroundPrimary,
         topBar = {
             OnboardingTopBar(
                 currentStep = uiState.currentStep,
                 totalSteps = uiState.steps.size,
-                backgroundColor = cardColor,
-                textColor = textPrimary,
+                backgroundColor = AppTheme.colors.surfacePrimary,
+                textColor = AppTheme.colors.textPrimary,
                 onBackClick = {
                     scope.launch {
                         if (pagerState.currentPage > 0) {
@@ -120,8 +117,8 @@ fun OnboardingScreen(
                 currentStep = uiState.currentStep,
                 totalSteps = uiState.steps.size,
                 permissionGranted = uiState.permissionStatuses[uiState.steps[uiState.currentStep]] == PermissionStatus.Granted,
-                backgroundColor = cardColor,
-                accentColor = accentColor,
+                backgroundColor = AppTheme.colors.surfacePrimary,
+                accentColor = AppTheme.colors.accentBlue,
                 onNextClick = {
                     scope.launch {
                         if (pagerState.currentPage < uiState.steps.size - 1) {
@@ -142,7 +139,7 @@ fun OnboardingScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(backgroundColor)
+                .background(AppTheme.colors.backgroundPrimary)
                 .padding(paddingValues)
         ) {
             HorizontalPager(
@@ -193,10 +190,10 @@ fun OnboardingScreen(
                             .size(if (isSelected) 10.dp else 8.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isSelected) 
-                                    accentColor
-                                else 
-                                    textSecondary.copy(alpha = 0.3f)
+                                 if (isSelected) 
+                                    AppTheme.colors.accentBlue
+                                 else 
+                                    AppTheme.colors.textSecondary.copy(alpha = 0.3f)
                             )
                     )
                 }
@@ -270,7 +267,7 @@ private fun OnboardingBottomBar(
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
-                        contentColor = Color(0xFF0F172A)
+                        contentColor = AppTheme.colors.backgroundPrimary
                     )
                 ) {
                     Text("Next")
@@ -288,7 +285,7 @@ private fun OnboardingBottomBar(
                         .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
-                        contentColor = Color(0xFF0F172A)
+                        contentColor = AppTheme.colors.backgroundPrimary
                     )
                 ) {
                     Text("Finish Setup")

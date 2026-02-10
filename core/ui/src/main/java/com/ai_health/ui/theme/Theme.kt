@@ -1,20 +1,15 @@
 package com.ai_health.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
 /**
  * Custom theme extension for Health & Sleep Tracker.
@@ -172,43 +167,30 @@ private val AppShapesM3 = Shapes(
  */
 @Composable
 fun HealthAppTheme(
-    darkTheme: Boolean = true, // Always dark mode
-    dynamicColor: Boolean = false, // Disabled for consistent branding
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            dynamicDarkColorScheme(context)
-        }
-        else -> AppDarkColorScheme
-    }
-    
     val appTheme = AppThemeConfig()
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        androidx.compose.runtime.SideEffect {
+            val window = (view.context as? android.app.Activity)?.window
+            window?.let {
+                // Make status bar transparent to let background gradient show through
+                // enableEdgeToEdge in Activity handles the layout, but we ensure color here
+                it.statusBarColor = android.graphics.Color.TRANSPARENT
+                
+                // Use WindowCompat to set light icons (false means light icons for dark background)
+                androidx.core.view.WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = false
+            }
+        }
+    }
     
     CompositionLocalProvider(LocalAppTheme provides appTheme) {
         MaterialTheme(
-            colorScheme = colorScheme,
+            colorScheme = AppDarkColorScheme,
             typography = AppTypography,
             shapes = AppShapesM3,
             content = content
         )
     }
-}
-
-/**
- * LEGACY: Keep for backward compatibility.
- * @deprecated Use HealthAppTheme instead
- */
-@Deprecated(
-    message = "Use HealthAppTheme instead for premium design system",
-    replaceWith = ReplaceWith("HealthAppTheme(darkTheme, dynamicColor, content)")
-)
-@Composable
-fun AssistantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    HealthAppTheme(darkTheme, dynamicColor, content)
 }

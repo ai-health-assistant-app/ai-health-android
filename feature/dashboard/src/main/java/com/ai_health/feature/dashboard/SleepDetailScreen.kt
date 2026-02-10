@@ -41,6 +41,15 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.ai_health.ui.theme.AppTheme
+import com.ai_health.ui.components.AppBackground
+import com.ai_health.ui.components.AppCard
+import com.ai_health.ui.components.CardVariant
+import com.ai_health.ui.theme.AppDimensions
+import com.ai_health.ui.theme.SleepDeep
+import com.ai_health.ui.theme.SleepLight
+import com.ai_health.ui.theme.SleepREM
+import com.ai_health.ui.theme.SleepAwake
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -68,24 +77,25 @@ fun SleepDetailScreen(
         onPageChanged(pagerState.currentPage, sleepNights.size)
     }
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Dettaglio Sonno", color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
-            )
-        },
-        containerColor = Color(0xFF0F172A)
-    ) { padding ->
+    AppBackground(contentPadding = false) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Dettaglio Sonno", color = AppTheme.colors.textPrimary) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = AppTheme.colors.textPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            },
+            containerColor = Color.Transparent
+        ) { padding ->
         if (sleepNights.isEmpty()) {
             // Empty state - no nights loaded at all
             Box(
@@ -97,7 +107,7 @@ fun SleepDetailScreen(
                 Text(
                     text = "Nessun dato sul sonno disponibile",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF94A3B8)
+                    color = AppTheme.colors.textTertiary
                 )
             }
         } else {
@@ -132,12 +142,13 @@ fun SleepDetailScreen(
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.padding(16.dp),
-                        color = Color.White
+                        color = AppTheme.colors.accentBlue
                     )
                 }
             }
         }
     }
+}
 }
 
 
@@ -165,26 +176,28 @@ private fun SleepDetailContent(
         SleepScoreCircle(score = analysis.totalScore)
 
         // --- NUOVO BLOCCO FEEDBACK ---
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF1E293B), RoundedCornerShape(12.dp))
-                .padding(16.dp)
+        AppCard(
+            variant = CardVariant.HIGHLIGHT,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = headlineText,
-                style = MaterialTheme.typography.titleMedium,
-                color = Color(0xFF38BDF8), // Light Blue
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = insightText, // Usiamo il testo generato, non quello del DB
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color.White,
-                textAlign = TextAlign.Center
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = headlineText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppTheme.colors.accentBlue,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = insightText, // Usiamo il testo generato, non quello del DB
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = AppTheme.colors.textPrimary,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         // Score Breakdown Section (if available)
@@ -192,7 +205,7 @@ private fun SleepDetailContent(
             Text(
                 text = "Composizione Punteggio",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                color = AppTheme.colors.textPrimary,
                 modifier = Modifier.align(Alignment.Start)
             )
             ScoreBreakdownCard(breakdown = breakdown)
@@ -204,7 +217,7 @@ private fun SleepDetailContent(
                 Text(
                     text = "Analisi Cardiaca",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    color = AppTheme.colors.textPrimary,
                     modifier = Modifier.align(Alignment.Start)
                 )
                 HrMetricsCard(metrics = metrics)
@@ -215,7 +228,7 @@ private fun SleepDetailContent(
         Text(
             text = "Ipogramma",
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = AppTheme.colors.textPrimary,
             modifier = Modifier.align(Alignment.Start)
         )
         SleepTimelineChart(
@@ -227,7 +240,7 @@ private fun SleepDetailContent(
         Text(
             text = "Statistiche Fasi",
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = AppTheme.colors.textPrimary,
             modifier = Modifier.align(Alignment.Start)
         )
         SleepStageStatsGrid(analysis = analysis)
@@ -247,13 +260,13 @@ fun SleepDateHeader(start: Instant, end: Instant) {
         Text(
             text = "Notte del $dateStr",
             style = MaterialTheme.typography.headlineSmall,
-            color = Color.White,
+            color = AppTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = "$startStr - $endStr",
             style = MaterialTheme.typography.bodyMedium,
-            color = Color(0xFF94A3B8)
+            color = AppTheme.colors.textTertiary
         )
     }
 }
@@ -277,7 +290,7 @@ private fun EmptyNightScreen(date: LocalDate) {
             Text(
                 text = "Notte del $dateStr",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color.White,
+                color = AppTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
@@ -287,21 +300,21 @@ private fun EmptyNightScreen(date: LocalDate) {
                 imageVector = Icons.Outlined.Info,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = Color(0xFF64748B)
+                tint = AppTheme.colors.textDisabled
             )
             
             // Message
             Text(
                 text = "Nessun dato sul sonno disponibile per questa notte",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF94A3B8),
+                color = AppTheme.colors.textTertiary,
                 textAlign = TextAlign.Center
             )
             
             Text(
                 text = "Scorri per visualizzare le altre notti",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF64748B),
+                color = AppTheme.colors.textDisabled,
                 textAlign = TextAlign.Center
             )
         }
@@ -311,10 +324,12 @@ private fun EmptyNightScreen(date: LocalDate) {
 @Composable
 fun SleepScoreCircle(score: Int) {
     val scoreColor = when {
-        score >= 80 -> Color(0xFF4ADE80) // Green
-        score >= 60 -> Color(0xFFFACC15) // Yellow
-        else -> Color(0xFFEF4444) // Red
+        score >= 80 -> AppTheme.colors.success // Green
+        score >= 60 -> AppTheme.colors.warning // Yellow
+        else -> AppTheme.colors.error // Red
     }
+
+    val trackColor = AppTheme.colors.surfaceSecondary
 
     Box(
         contentAlignment = Alignment.Center,
@@ -325,7 +340,7 @@ fun SleepScoreCircle(score: Int) {
             
             // Background Track
             drawArc(
-                color = Color(0xFF334155),
+                color = trackColor,
                 startAngle = 0f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -346,13 +361,13 @@ fun SleepScoreCircle(score: Int) {
             Text(
                 text = score.toString(),
                 style = MaterialTheme.typography.displayMedium,
-                color = Color.White,
+                color = AppTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = "Score",
                 style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF94A3B8)
+                color = AppTheme.colors.textTertiary
             )
         }
     }
@@ -361,7 +376,7 @@ fun SleepScoreCircle(score: Int) {
 @Composable
 fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
     if (totalDuration.isZero || stages.isEmpty()) {
-        Text("No Data", color = Color.Gray)
+        Text("No Data", color = AppTheme.colors.textTertiary)
         return
     }
 
@@ -372,7 +387,7 @@ fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(Color(0xFF334155), RoundedCornerShape(8.dp))
+            .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp))
             .padding(2.dp) // Optional padding inside container
     ) {
         stages.forEach { stage ->
@@ -406,7 +421,7 @@ fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
                     modifier = Modifier.size(8.dp).background(getStageColor(type), RoundedCornerShape(2.dp))
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(label, color = Color(0xFF94A3B8), style = MaterialTheme.typography.labelSmall)
+                Text(label, color = AppTheme.colors.textTertiary, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -466,8 +481,8 @@ fun StageStatCard(
     val minutes = duration.toMinutes() % 60
     val timeStr = "${hours}h ${minutes}m"
 
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+    AppCard(
+        variant = CardVariant.NORMAL,
         modifier = modifier
     ) {
         Column(
@@ -477,41 +492,42 @@ fun StageStatCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(12.dp).background(color, RoundedCornerShape(4.dp)))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF94A3B8))
+                Text(title, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textTertiary)
             }
             Text(
                 text = timeStr,
                 style = MaterialTheme.typography.titleLarge,
-                color = Color.White,
+                color = AppTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
             if (percentage != null) {
                 Text(
                     text = "$percentage%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B)
+                    color = AppTheme.colors.textSecondary
                 )
             }
         }
     }
 }
 
+@Composable
 fun getStageColor(stage: SleepStageType): Color {
     return when (stage) {
-        SleepStageType.DEEP -> Color(0xFF1E3A8A) // Dark Blue
-        SleepStageType.REM -> Color(0xFF7C3AED) // Purple
-        SleepStageType.LIGHT -> Color(0xFF38BDF8) // Light Blue
-        SleepStageType.AWAKE -> Color(0xFFF97316) // Orange
-        SleepStageType.OUT_OF_BED -> Color(0xFF94A3B8) // Gray
-        SleepStageType.SLEEPING -> Color(0xFF3B82F6) // Generic Blue
-        SleepStageType.UNKNOWN -> Color.Gray
+        SleepStageType.DEEP -> SleepDeep
+        SleepStageType.REM -> SleepREM
+        SleepStageType.LIGHT -> SleepLight
+        SleepStageType.AWAKE -> SleepAwake
+        SleepStageType.OUT_OF_BED -> AppTheme.colors.textDisabled
+        SleepStageType.SLEEPING -> AppTheme.colors.accentBlue
+        SleepStageType.UNKNOWN -> AppTheme.colors.textDisabled
     }
 }
 
 @Composable
 fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+    AppCard(
+        variant = CardVariant.NORMAL,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -521,7 +537,7 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
             Text(
                 text = "Fattori del Riposo",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = AppTheme.colors.textPrimary
             )
 
             // 1. Architecture -> "Profondità del Sonno"
@@ -530,7 +546,7 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
                 label = "Profondità",
                 score = breakdown.architectureScore,
                 maxScore = 40.0,
-                color = Color(0xFF3B82F6) // Blu
+                color = AppTheme.colors.accentBlue // Blu
             )
 
             // 2. Dipping -> "Recupero Fisico"
@@ -539,7 +555,7 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
                 label = "Recupero Fisico",
                 score = breakdown.dippingScore,
                 maxScore = 30.0,
-                color = Color(0xFF10B981) // Verde
+                color = AppTheme.colors.accentGreen // Verde
             )
 
             // 3. RHR -> "Rilassamento Cardiaco"
@@ -547,7 +563,7 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
                 label = "Rilassamento",
                 score = breakdown.rhrScore,
                 maxScore = 20.0,
-                color = Color(0xFFF97316) // Arancio
+                color = AppTheme.colors.accentOrange // Arancio
             )
 
             // 4. Timing Nadir -> "Allineamento Circadiano"
@@ -556,7 +572,7 @@ fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
                 label = "Ritmo Circadiano",
                 score = breakdown.timingScore,
                 maxScore = 10.0,
-                color = Color(0xFF8B5CF6) // Viola
+                color = AppTheme.colors.accentPurple // Viola
             )
         }
     }
@@ -577,12 +593,12 @@ private fun ScoreProgressRow(
             Text(
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF94A3B8)
+                color = AppTheme.colors.textTertiary
             )
             Text(
                 text = "%.0f / %.0f".format(score, maxScore),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
+                color = AppTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -592,7 +608,7 @@ private fun ScoreProgressRow(
                 .fillMaxWidth()
                 .height(8.dp),
             color = color,
-            trackColor = Color(0xFF374151),
+            trackColor = AppTheme.colors.surfaceSecondary,
             strokeCap = StrokeCap.Round
         )
     }
@@ -642,8 +658,8 @@ object SleepFeedbackGenerator {
 
 @Composable
 fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+    AppCard(
+        variant = CardVariant.NORMAL,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -653,7 +669,7 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
             Text(
                 text = "Salute Cardiaca Notturna",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = AppTheme.colors.textPrimary
             )
 
             // ROW 1: I dati "Grezi" sicuri (BPM)
@@ -692,15 +708,15 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
 
             // Logica di traduzione "Whoop Style"
             val (statusText, statusColor) = when {
-                dippingState < 0 -> "Sotto Sforzo" to Color(0xFFEF4444) // Era Reverse Dipper
-                dippingState < 10 -> "Recupero Parziale" to Color(0xFFFBBF24) // Era Non-Dipper
-                else -> "Recupero Ottimale" to Color(0xFF10B981) // Normal/Extreme
+                dippingState < 0 -> "Sotto Sforzo" to AppTheme.colors.error // Era Reverse Dipper
+                dippingState < 10 -> "Recupero Parziale" to AppTheme.colors.warning // Era Non-Dipper
+                else -> "Recupero Ottimale" to AppTheme.colors.success // Normal/Extreme
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF334155), RoundedCornerShape(8.dp))
+                    .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp))
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -709,7 +725,7 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
                     Text(
                         text = "Stato del Sistema Nervoso",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF94A3B8)
+                        color = AppTheme.colors.textTertiary
                     )
                     Text(
                         text = statusText,
@@ -745,20 +761,20 @@ private fun HrMetricBox(
 ) {
     Column(
         modifier = modifier
-            .background(Color(0xFF334155), RoundedCornerShape(8.dp)) // Grigio leggermente più chiaro
+            .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp)) // Grigio leggermente più chiaro
             .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = value,
             style = MaterialTheme.typography.headlineMedium,
-            color = Color.White,
+            color = AppTheme.colors.textPrimary,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = "$unit $label", // Es: "bpm Media Notturna"
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF94A3B8),
+            color = AppTheme.colors.textTertiary,
             textAlign = TextAlign.Center
         )
     }

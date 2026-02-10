@@ -1,5 +1,8 @@
 package com.ai_health.feature.dashboard
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -12,17 +15,11 @@ import androidx.navigation.navArgument
 
 /**
  * Dashboard feature navigation graph extension.
- * 
- * This function encapsulates the navigation logic for the dashboard feature
- * and its related detail chart screens. The DashboardViewModel is shared
- * between the dashboard and detail screens to maintain state consistency.
- * 
- * @param onMetricClick Callback invoked when a metric card is clicked,
- *                      receives the metric type (e.g., "steps", "sleep").
- * @param onBack Callback invoked when the back button is pressed in detail view.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 fun NavGraphBuilder.dashboardGraph(
     navController: androidx.navigation.NavHostController,
+    sharedTransitionScope: SharedTransitionScope, // <--- Importante
     onMetricClick: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -32,35 +29,48 @@ fun NavGraphBuilder.dashboardGraph(
     ) {
         // Main dashboard screen
         composable(route = "dashboard") { entry ->
-            // ViewModel scoped to the navigation graph
             val parentEntry = remember(entry) { navController.getBackStackEntry("dashboard_graph") }
             val viewModel: DashboardViewModel = hiltViewModel(parentEntry)
-            
+
             DashboardScreen(
                 viewModel = viewModel,
-                onMetricClick = onMetricClick
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this, // 'this' è AnimatedVisibilityScope
+                onMetricClick = onMetricClick,
+                onChatClick = {
+                    navController.navigate("chat")
+                }
             )
         }
-        
-        // Detail chart screen
+
+        // Chat Screen
+        composable(route = "chat") {
+            ChatScreen(
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = this, // 'this' è AnimatedVisibilityScope
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Detail chart screen (Chart logic remains same)
         composable(
             route = "detail/{type}",
             arguments = listOf(
-                navArgument("type") { 
+                navArgument("type") {
                     type = NavType.StringType
                     nullable = false
                 }
             )
         ) { backStackEntry ->
-            // Get the DashboardViewModel scoped to the navigation graph
             val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("dashboard_graph") }
             val dashboardViewModel: DashboardViewModel = hiltViewModel(parentEntry)
             val state by dashboardViewModel.uiState.collectAsState()
-            
-            // Extract metric type from navigation arguments
+
             val type = backStackEntry.arguments?.getString("type") ?: ""
-            
-            // Map metric type to corresponding historical data
+
+            // ... (Logica dati invariata) ...
             val historyData = when(type) {
                 "steps" -> state.stepsHistory
                 "sleep" -> state.sleepHistory
@@ -70,14 +80,11 @@ fun NavGraphBuilder.dashboardGraph(
                 "ox" -> state.oxygenHistory
                 else -> emptyList()
             }
-            
-            
-            if (type == "sleep" && state.sleepNights.isNotEmpty()) {
-                // Determine initial date from selected session
+
+            if (type == "sleep") {
                 val initialDate = state.selectedSleepSession?.let { session ->
                     session.startTime.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
                 }
-                
                 SleepDetailScreen(
                     sleepNights = state.sleepNights,
                     initialDate = initialDate,
@@ -88,7 +95,6 @@ fun NavGraphBuilder.dashboardGraph(
                     onBack = onBack
                 )
             } else {
-                // History data for other charts
                 DetailChartScreen(
                     metricType = type,
                     data = historyData,

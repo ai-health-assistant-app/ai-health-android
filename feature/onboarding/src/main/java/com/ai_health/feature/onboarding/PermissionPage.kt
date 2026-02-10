@@ -11,9 +11,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.ai_health.ui.components.AppButton
+import com.ai_health.ui.components.AppCard
+import com.ai_health.ui.components.ButtonVariant
+import com.ai_health.ui.components.CardVariant
+import com.ai_health.ui.theme.AppDimensions
+import com.ai_health.ui.theme.AppTheme
 
 @Composable
 fun PermissionPage(
@@ -23,36 +28,22 @@ fun PermissionPage(
     onSkipClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Dashboard color scheme
-    val backgroundColor = Color(0xFF0F172A)
-    val cardColor = Color(0xFF1E293B)
-    val accentColor = Color(0xFF38BDF8)
-    val textPrimary = Color.White
-    val textSecondary = Color(0xFF94A3B8)
-    
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(backgroundColor)
-            .padding(24.dp),
+            .background(AppTheme.colors.backgroundPrimary)
+            .padding(AppDimensions.space6),
         contentAlignment = Alignment.Center
     ) {
-        Card(
+        AppCard(
+            variant = CardVariant.NORMAL,
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight(),
-            colors = CardDefaults.cardColors(
-                containerColor = cardColor
-            ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = 4.dp
-            ),
-            shape = MaterialTheme.shapes.large
+            contentPadding = AppDimensions.space8
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -62,34 +53,34 @@ fun PermissionPage(
                     contentDescription = step.title,
                     modifier = Modifier.size(120.dp),
                     tint = if (permissionStatus == PermissionStatus.Granted) {
-                        accentColor
+                        AppTheme.colors.accentBlue
                     } else {
-                        textSecondary
+                        AppTheme.colors.textSecondary
                     }
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(AppDimensions.space8))
 
                 // Title
                 Text(
                     text = step.title,
                     style = MaterialTheme.typography.headlineMedium,
                     textAlign = TextAlign.Center,
-                    color = textPrimary
+                    color = AppTheme.colors.textPrimary
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(AppDimensions.space4))
 
                 // Description
                 Text(
                     text = step.description,
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
-                    color = textSecondary,
-                    modifier = Modifier.padding(horizontal = 8.dp)
+                    color = AppTheme.colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = AppDimensions.space2)
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(AppDimensions.space8))
 
                 // Status indicator
                 AnimatedVisibility(
@@ -100,43 +91,33 @@ fun PermissionPage(
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = AppDimensions.space4)
                     ) {
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = "Granted",
-                            tint = accentColor,
+                            tint = AppTheme.colors.accentBlue,
                             modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(AppDimensions.space2))
                         Text(
                             text = "Permission Granted",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = accentColor
+                            color = AppTheme.colors.accentBlue
                         )
                     }
                 }
 
                 // Buttons
                 if (permissionStatus != PermissionStatus.Granted) {
-                    Button(
+                    AppButton(
+                        text = "Grant Permission",
                         onClick = onGrantClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = accentColor,
-                            contentColor = backgroundColor
-                        ),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Text(
-                            text = "Grant Permission",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
+                        variant = ButtonVariant.PRIMARY,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AppDimensions.space3))
 
                     TextButton(
                         onClick = onSkipClick,
@@ -145,7 +126,7 @@ fun PermissionPage(
                         Text(
                             text = "Skip for now",
                             style = MaterialTheme.typography.bodyLarge,
-                            color = textSecondary
+                            color = AppTheme.colors.textSecondary
                         )
                     }
                 }

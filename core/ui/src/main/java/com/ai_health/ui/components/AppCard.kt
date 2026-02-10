@@ -29,15 +29,15 @@ import com.ai_health.ui.theme.AppTheme
  * - GLASS: Glassmorphic effect with semi-transparency and hairline border
  */
 enum class CardVariant {
-    SOLID,
+    NORMAL,
     OUTLINED,
-    GLASS
+    HIGHLIGHT
 }
 
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
-    variant: CardVariant = CardVariant.SOLID,
+    variant: CardVariant = CardVariant.NORMAL,
     cornerRadius: Dp = AppDimensions.cornerRadiusMedium,
     contentPadding: Dp = AppDimensions.cardPadding,
     onClick: (() -> Unit)? = null,
@@ -49,7 +49,7 @@ fun AppCard(
         .clip(shape)
         .then(
             when (variant) {
-                CardVariant.SOLID -> {
+                CardVariant.NORMAL -> {
                     Modifier
                         .background(
                             color = AppTheme.colors.surfacePrimary.copy(alpha = 0.6f),
@@ -72,15 +72,15 @@ fun AppCard(
                         )
                 }
                 
-                CardVariant.GLASS -> {
+                CardVariant.HIGHLIGHT -> {
                     Modifier
                         .background(
-                            brush = AppTheme.gradients.glass,
+                            color = AppTheme.colors.surfacePrimary,
                             shape = shape
                         )
                         .border(
-                            width = AppDimensions.borderHairline,
-                            color = AppTheme.colors.borderBright,
+                            width = 1.5.dp,
+                            color = AppTheme.colors.borderSubtle,
                             shape = shape
                         )
                 }
