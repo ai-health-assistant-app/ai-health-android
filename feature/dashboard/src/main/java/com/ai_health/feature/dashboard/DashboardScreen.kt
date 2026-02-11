@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer // Added for biomimetic animations
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -132,7 +133,7 @@ fun DashboardScreen(
                             unit = "bpm",
                             icon = Icons.Rounded.Favorite,
                             iconColor = AppTheme.colors.error,
-                            shouldPulse = true, // <--- ABILITA IL PULSARE QUI
+                            animationType = IconAnimationType.PULSE,
                             modifier = Modifier.weight(1f),
                             onClick = { onMetricClick("hr") }
                         )
@@ -144,7 +145,7 @@ fun DashboardScreen(
                             unit = "ore",
                             icon = Icons.Rounded.Bedtime,
                             iconColor = AppTheme.colors.accentPurple,
-                            shouldPulse = false, // <--- Qui rimane fermo
+                            animationType = IconAnimationType.ROCK,
                             modifier = Modifier.weight(1f),
                             onClick = { onMetricClick("sleep") }
                         )
@@ -157,6 +158,7 @@ fun DashboardScreen(
                         title = "Ossigenazione (SpO2)",
                         value = state.oxygenFormatted,
                         icon = Icons.Rounded.Air,
+                        animationType = IconAnimationType.FLOAT,
                         onClick = { onMetricClick("ox") }
                     )
                 }
@@ -243,7 +245,9 @@ fun DailyFocusCard(
                         imageVector = Icons.Rounded.AutoAwesome,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        /*modifier = Modifier
+                            .size(20.dp)
+                            .biomimeticAnimation(IconAnimationType.TWINKLE)*/
                     )
                 }
 
@@ -379,26 +383,9 @@ fun MetricMiniCard(
     icon: ImageVector,
     iconColor: Color,
     modifier: Modifier = Modifier,
-    shouldPulse: Boolean = false, // <--- 1. NUOVO PARAMETRO (default false)
+    animationType: IconAnimationType = IconAnimationType.NONE,
     onClick: () -> Unit
 ) {
-    // 2. LOGICA ANIMAZIONE
-    // Se shouldPulse è true, crea una transizione infinita che scala da 1.0 a 1.2
-    val scale by if (shouldPulse) {
-        val infiniteTransition = rememberInfiniteTransition(label = "heartbeat")
-        infiniteTransition.animateFloat(
-            initialValue = 1.0f,
-            targetValue = 1.2f, // Quanto diventa grande (120%)
-            animationSpec = infiniteRepeatable(
-                animation = tween(600, easing = FastOutSlowInEasing), // Durata di un battito
-                repeatMode = RepeatMode.Reverse // Va avanti e indietro
-            ),
-            label = "scale"
-        )
-    } else {
-        remember { mutableFloatStateOf(1.0f) }
-    }
-
     AppCard(
         modifier = modifier,
         onClick = onClick,
@@ -415,22 +402,21 @@ fun MetricMiniCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconColor,
-                    // 3. APPLICA LA SCALA ALL'ICONA
                     modifier = Modifier
                         .size(18.dp)
-                        .scale(scale)
+                        .biomimeticAnimation(animationType, value) // Pass value for BPM
                 )
             }
 
             Column {
                 Text(
-                    text = value, // Ho corretto 'value' (parametro) invece di value hardcoded
+                    text = value,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = AppTheme.colors.textPrimary
                 )
                 Text(
-                    text = "$unit $title", // Ho corretto l'uso delle stringhe
+                    text = "$unit $title",
                     style = MaterialTheme.typography.bodySmall,
                     color = AppTheme.colors.textSecondary
                 )
@@ -444,6 +430,7 @@ fun MetricWideRow(
     title: String,
     value: String,
     icon: ImageVector,
+    animationType: IconAnimationType = IconAnimationType.NONE, // Add animation support
     onClick: () -> Unit
 ) {
     AppCard(onClick = onClick, contentPadding = 16.dp) {
@@ -453,7 +440,12 @@ fun MetricWideRow(
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = AppTheme.colors.textTertiary)
+                Icon(
+                    icon, 
+                    contentDescription = null, 
+                    tint = AppTheme.colors.textTertiary,
+                    modifier = Modifier.biomimeticAnimation(animationType)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(title, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textSecondary)
             }
@@ -464,5 +456,96 @@ fun MetricWideRow(
                 color = AppTheme.colors.textPrimary
             )
         }
+    }
+}
+
+// --- BIOMIMETIC ANIMATIONS ---
+
+enum class IconAnimationType {
+    NONE, PULSE, ROCK, FLOAT, TWINKLE
+}
+
+@Composable
+fun Modifier.biomimeticAnimation(
+    type: IconAnimationType,
+    value: String = "0" // Used for BPM dynamic calculation
+): Modifier {
+    val infiniteTransition = rememberInfiniteTransition(label = "biomimetic_${type.name}")
+
+    return when (type) {
+        IconAnimationType.PULSE -> {
+            // Pulse Logic: Calculate duration based on BPM
+            val bpm = value.toIntOrNull()?.coerceAtLeast(40) ?: 60
+            val durationMillis = (60000 / bpm).coerceAtLeast(300) // limit max speed
+
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1.0f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis / 2, easing = FastOutSlowInEasing), // Systole
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulse_scale"
+            )
+            this.scale(scale)
+        }
+        IconAnimationType.ROCK -> {
+            // Rock Logic: Sleep icon gently rocking
+            val rotation by infiniteTransition.animateFloat(
+                initialValue = -20f,
+                targetValue = 10f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(3000, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "rock_rotation"
+            )
+            this.graphicsLayer { rotationZ = rotation }
+        }
+        IconAnimationType.FLOAT -> {
+            // Breathing Logic: Slow expansion/contraction for Oxygen (Respiro)
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1.0f,
+                targetValue = 1.20f, // Espansione leggera (10%), meno aggressiva del cuore
+                animationSpec = infiniteRepeatable(
+                    // 3000ms = 3 secondi per inspirare, 3 per espirare (ciclo tot 6s).
+                    // Molto rilassante, tipico di un respiro profondo.
+                    animation = tween(3000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "breath_scale"
+            )
+
+            // Applica la scala uniformemente
+            this.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+        }
+        IconAnimationType.TWINKLE -> {
+            // Twinkle Logic: AI Magic
+            val scale by infiniteTransition.animateFloat(
+                initialValue = 1.0f,
+                targetValue = 1.15f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1000, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "twinkle_scale"
+            )
+            val rotation by infiniteTransition.animateFloat(
+                initialValue = -10f,
+                targetValue = 10f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(1500, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "twinkle_rotation"
+            )
+            this
+                .scale(scale)
+                .graphicsLayer { rotationZ = rotation }
+        }
+        IconAnimationType.NONE -> this
     }
 }
