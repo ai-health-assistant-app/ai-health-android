@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ai_health.feature.dashboard.dashboardGraph
 import com.ai_health.feature.onboarding.onboardingGraph
@@ -89,6 +90,18 @@ fun AppNavHost(
                         navController.popBackStack()
                     }
                 )
+
+
+                composable(
+                    route = "settings",
+                    enterTransition = { slideInHorizontally { it } }, // Entra da destra
+                    exitTransition = { slideOutHorizontally { it } }
+                ) {
+                    // Importa la SettingsScreen che abbiamo appena creato
+                    com.ai_health.feature.dashboard.SettingsScreen(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

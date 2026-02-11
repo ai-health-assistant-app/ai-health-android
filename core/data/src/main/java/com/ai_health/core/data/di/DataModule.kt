@@ -28,6 +28,12 @@ abstract class RepositoryModule {
     abstract fun bindHealthRepository(
         healthRepositoryImpl: HealthRepositoryImpl
     ): HealthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindUserRepository(
+        userRepositoryImpl: com.ai_health.core.data.repository.UserRepositoryImpl
+    ): com.ai_health.core.data.repository.UserRepository
 }
 
 @Module
@@ -92,6 +98,12 @@ object DatabaseModule {
     @Singleton
     fun provideSyncTokenDao(database: AppDatabase): SyncTokenDao {
         return database.syncTokenDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserDao(database: AppDatabase): com.ai_health.core.data.local.dao.UserDao {
+        return database.userDao()
     }
 
     @Provides

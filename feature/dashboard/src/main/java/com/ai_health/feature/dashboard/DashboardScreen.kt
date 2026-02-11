@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.*
@@ -47,7 +48,8 @@ fun DashboardScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onMetricClick: (String) -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
@@ -96,7 +98,7 @@ fun DashboardScreen(
             ) {
                 // 1. Header (Greeting + Date)
                 item {
-                    DashboardHeader()
+                    DashboardHeader(onSettingsClick = onSettingsClick)
                 }
 
                 // 2. Activity Section (Visual)
@@ -176,7 +178,9 @@ fun DashboardScreen(
 // --- DEDICATED COMPONENTS ---
 
 @Composable
-fun DashboardHeader() {
+fun DashboardHeader(
+    onSettingsClick: () -> Unit // <--- NUOVO PARAMETRO
+) {
     val dateStr = remember {
         LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ITALIAN))
     }
@@ -188,19 +192,63 @@ fun DashboardHeader() {
         else -> "Buonasera"
     }
 
-    Column(modifier = Modifier.padding(top = 16.dp)) {
-        Text(
-            text = dateStr.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            color = AppTheme.colors.textTertiary,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "$greeting Angelo!",
-            style = MaterialTheme.typography.headlineMedium,
-            color = AppTheme.colors.textPrimary,
-            fontWeight = FontWeight.Bold
-        )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 24.dp, bottom = 8.dp), // Aumentato top padding per respiro
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically // Allinea al centro verticale
+    ) {
+        Column(modifier = Modifier.weight(1f)) { // Weight per spingere l'icona a destra
+            Text(
+                text = dateStr.uppercase(),
+                style = MaterialTheme.typography.labelSmall, // Più discreto
+                color = AppTheme.colors.textTertiary,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "$greeting Angelo!",
+                style = MaterialTheme.typography.headlineSmall, // Leggermente più compatto
+                color = AppTheme.colors.textPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // --- IL NUOVO TASTO PROFILO ---
+        Surface(
+            onClick = onSettingsClick,
+            shape = CircleShape,
+            color = AppTheme.colors.surfacePrimary, // O surfaceSecondary
+            border = BorderStroke(1.dp, AppTheme.colors.surfaceSecondary.copy(alpha = 0.5f)), // Bordo sottile
+            modifier = Modifier.size(48.dp) // Dimensione tattile ottimale (48dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                // Sfondo gradiente o tinta leggera
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(AppTheme.colors.accentBlue.copy(alpha = 0.1f))
+                )
+                // Se in futuro hai una foto, la metti qui.
+                // Per ora usiamo le iniziali o l'icona, ma stilizzata.
+                Text(
+                    text = "AQ", // Iniziali simulate (Angelo Quartarone)
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppTheme.colors.accentBlue,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Opzionale: Icona Settings piccola sovrapposta (badge)
+                /* Icon(
+                    Icons.Rounded.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(12.dp).align(Alignment.BottomEnd).padding(4.dp),
+                    tint = AppTheme.colors.textSecondary
+                ) */
+            }
+        }
     }
 }
 
