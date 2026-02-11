@@ -13,7 +13,7 @@ import javax.inject.Inject
  * Configuration.Provider e usare HiltWorkerFactory.
  */
 @HiltAndroidApp
-class SaluteTwinApp : Application(), Configuration.Provider {
+class HealthTwinApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory

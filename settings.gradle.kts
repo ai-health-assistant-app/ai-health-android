@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "assistant"
+rootProject.name = "HealthTwin"
 include(":app")
 include(":core:domain")
 include(":core:health")
