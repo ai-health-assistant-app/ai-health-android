@@ -6,12 +6,19 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-
+import com.ai_health.ui.components.AppBackground
+import com.ai_health.ui.components.AppCard
+import com.ai_health.ui.components.CardVariant
 import com.ai_health.ui.components.SimpleBarChart
 import com.ai_health.ui.components.SimpleLineChart
 import com.ai_health.ui.components.ChartDataPoint
+import com.ai_health.ui.theme.AppDimensions
+import com.ai_health.ui.theme.AppTheme
+import com.ai_health.ui.theme.ChartBlue
+import com.ai_health.ui.theme.ChartGreen
+import com.ai_health.ui.theme.ChartOrange
+import com.ai_health.ui.theme.ChartPink
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,12 +27,13 @@ fun DetailChartScreen(
     data: List<ChartDataPoint>,
     onBack: () -> Unit
 ) {
+    // Map metric types to design system colors
     val color = when (metricType) {
-        "steps" -> Color(0xFF38BDF8)
-        "hr" -> Color(0xFFF87171)
-        "cal" -> Color(0xFFFB923C)
-        "ox" -> Color(0xFF2DD4BF)
-        else -> Color(0xFF818CF8)
+        "steps" -> AppTheme.colors.accentBlue
+        "hr" -> ChartPink
+        "cal" -> ChartOrange
+        "ox" -> AppTheme.colors.accentGreen
+        else -> AppTheme.colors.accentPurple
     }
 
     val title = when (metricType) {
@@ -40,35 +48,53 @@ fun DetailChartScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(title, color = Color.White) },
+                title = { Text(title, color = AppTheme.colors.textPrimary) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = AppTheme.colors.textPrimary
+                        )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF0F172A))
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AppTheme.colors.backgroundPrimary
+                )
             )
         },
-        containerColor = Color(0xFF0F172A)
+        containerColor = AppTheme.colors.backgroundPrimary
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
+        AppBackground(
+            contentPadding = false,
+            modifier = Modifier.padding(padding)
         ) {
-            // Chart Section
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                modifier = Modifier.fillMaxWidth().height(300.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(AppDimensions.space4)
             ) {
-                Box(modifier = Modifier.padding(16.dp)) {
-                    // Data is already mapped to ChartDataPoint
-                    
-                    if (metricType == "hr" || metricType == "ox") {
-                        SimpleLineChart(data = data, color = color, modifier = Modifier.fillMaxSize())
-                    } else {
-                        SimpleBarChart(data = data, color = color, modifier = Modifier.fillMaxSize())
+                // Chart Section
+                AppCard(
+                    variant = CardVariant.NORMAL,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                ) {
+                    Box(modifier = Modifier.padding(AppDimensions.space4)) {
+                        if (metricType == "hr" || metricType == "ox") {
+                            SimpleLineChart(
+                                data = data,
+                                color = color,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            SimpleBarChart(
+                                data = data,
+                                color = color,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }

@@ -44,7 +44,7 @@ import com.ai_health.core.data.local.entity.SyncTokenEntity
         SleepStageEntity::class,
         SyncTokenEntity::class          // NEW: Token per Changes API
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

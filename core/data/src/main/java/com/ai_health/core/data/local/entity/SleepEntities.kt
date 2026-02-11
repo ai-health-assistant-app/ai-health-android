@@ -17,7 +17,8 @@ data class SleepSessionEntity(
     val title: String?,
     val notes: String?,
     val startTime: Instant,
-    val endTime: Instant
+    val endTime: Instant,
+    val deviceType: String?
 )
 
 @Entity(
@@ -39,7 +40,8 @@ data class SleepStageEntity(
     val sleepSessionId: String,
     val stage: Int,
     val startTime: Instant,
-    val endTime: Instant
+    val endTime: Instant,
+    val deviceType: String?
 )
 
 data class SleepSessionWithStages(

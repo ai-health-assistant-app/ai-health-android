@@ -1,17 +1,19 @@
 package com.ai_health.feature.onboarding
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ai_health.ui.components.AppBackground
+import com.ai_health.ui.components.AppButton
+import com.ai_health.ui.components.ButtonVariant
+import com.ai_health.ui.theme.AppDimensions
+import com.ai_health.ui.theme.AppTheme
 
 /**
  * Composable function that renders the application's welcome screen.
@@ -26,60 +28,43 @@ import androidx.compose.ui.unit.sp
 fun WelcomeScreen(
     onGetStarted: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F172A), // Slate 900
-                        Color(0xFF1E293B), // Slate 800
-                        Color(0xFF334155)  // Slate 700
-                    )
+    AppBackground {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(AppDimensions.space6)
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(bottom = 100.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "AI Health\nAssistant",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = AppTheme.colors.textPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 50.sp
                 )
-            )
-            .padding(24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .padding(bottom = 100.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "AI Health\nAssistant",
-                style = MaterialTheme.typography.displayMedium,
-                color = Color.White,
-                fontWeight = FontWeight.ExtraBold,
-                textAlign = TextAlign.Center,
-                lineHeight = 50.sp
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "Unleash the power of AI to analyze your health data and give you personalized insights.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF94A3B8), // Slate 400
-                textAlign = TextAlign.Center
-            )
-        }
+                Spacer(modifier = Modifier.height(AppDimensions.space6))
+                Text(
+                    text = "Unleash the power of AI to analyze your health data and give you personalized insights.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = AppTheme.colors.textSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
 
-        Button(
-            onClick = onGetStarted,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-                .height(56.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF38BDF8), // Sky 400
-                contentColor = Color(0xFF0F172A)
-            ),
-            shape = MaterialTheme.shapes.extraLarge
-        ) {
-            Text(
+            AppButton(
                 text = "Get Started",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                onClick = onGetStarted,
+                variant = ButtonVariant.PRIMARY,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = AppDimensions.space6)
             )
         }
     }

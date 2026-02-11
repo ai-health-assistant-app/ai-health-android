@@ -8,9 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.health.connect.client.HealthConnectClient
 import com.ai_health.assistant.navigation.AppNavHost
 import com.ai_health.core.data.sync.HealthSyncScheduler
-import com.ai_health.ui.theme.AssistantTheme
+import com.ai_health.ui.theme.HealthAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+
+import androidx.activity.enableEdgeToEdge
 
 /**
  * Main entry point for the AI Health Assistant application.
@@ -28,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         // [IMPORTANTE] Controllo immediato dell'Intent
         checkHealthConnectRationale(intent)
@@ -43,7 +46,7 @@ class MainActivity : ComponentActivity() {
         // AFTER Health Connect permissions are confirmed
 
         setContent {
-            AssistantTheme {
+            HealthAppTheme {
                 // All navigation logic is now handled by AppNavHost
                 // Feature modules own their respective navigation graphs
                 AppNavHost(
