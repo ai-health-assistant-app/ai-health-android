@@ -42,6 +42,9 @@ interface HealthMetricDao {
     @Query("SELECT * FROM steps WHERE startTime >= :startTime ORDER BY startTime DESC")
     fun getSteps(startTime: Instant): Flow<List<StepsEntity>>
 
+    @Query("SELECT COUNT(*) FROM steps")
+    suspend fun getStepsCount(): Int
+
     @Query("DELETE FROM steps WHERE id = :recordId")
     suspend fun deleteStepsById(recordId: String)
 

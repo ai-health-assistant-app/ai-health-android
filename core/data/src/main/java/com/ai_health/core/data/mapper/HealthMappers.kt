@@ -68,7 +68,8 @@ object HealthMappers {
             count = this.count,
             startTime = this.startTime,
             endTime = this.endTime,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -89,7 +90,8 @@ object HealthMappers {
             energyKilocalories = this.energyKilocalories,
             startTime = this.startTime,
             endTime = this.endTime,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -110,7 +112,8 @@ object HealthMappers {
             distanceMeters = this.distanceMeters,
             startTime = this.startTime,
             endTime = this.endTime,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -130,7 +133,8 @@ object HealthMappers {
             id = this.id,
             percentage = this.percentage,
             time = this.time,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -152,7 +156,8 @@ object HealthMappers {
             notes = this.notes,
             startTime = this.startTime,
             endTime = this.endTime,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -176,7 +181,8 @@ object HealthMappers {
             notes = this.notes,
             startTime = this.startTime,
             endTime = this.endTime,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 
@@ -187,7 +193,8 @@ object HealthMappers {
             source = source,
             stage = this.stage,
             startTime = this.startTime,
-            endTime = this.endTime
+            endTime = this.endTime,
+            deviceType = null
         )
     }
 
@@ -219,7 +226,8 @@ object HealthMappers {
             id = this.id,
             energyKilocaloriesPerDay = this.energyKilocaloriesPerDay,
             time = this.time,
-            source = this.source
+            source = this.source,
+            deviceType = null
         )
     }
 

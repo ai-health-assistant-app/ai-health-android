@@ -8,6 +8,9 @@ data class DashboardData(
     val distanceKm: Double = 0.0,
     val oxygenSaturation: Double = 0.0,
     
+    // Detailed Data
+    val latestSleepSession: com.ai_health.core.domain.model.SleepSessionRec? = null,
+    
     // History Data for Charts
     val stepsHistory: List<HealthMetricPoint> = emptyList(),
     val heartRateHistory: List<HealthMetricPoint> = emptyList(),

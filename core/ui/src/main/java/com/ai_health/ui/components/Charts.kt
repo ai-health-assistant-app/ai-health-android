@@ -19,6 +19,9 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+import com.ai_health.ui.theme.AppTheme
+import com.ai_health.ui.theme.AppDimensions
+
 data class ChartDataPoint(
     val timestamp: Long,
     val value: Double
@@ -35,10 +38,10 @@ fun SimpleLineChart(
             modifier = modifier
                 .fillMaxWidth()
                 .height(150.dp)
-                .background(Color(0xFF1E293B).copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                .background(AppTheme.colors.surfaceSecondary.copy(alpha = 0.3f), RoundedCornerShape(AppDimensions.cornerRadiusSmall)),
             contentAlignment = Alignment.Center
         ) {
-            Text("Dati insufficienti", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            Text("Dati insufficienti", color = AppTheme.colors.textTertiary, style = MaterialTheme.typography.bodySmall)
         }
         return
     }
@@ -54,7 +57,7 @@ fun SimpleLineChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(130.dp)
-                .background(Color(0xFF1E293B).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                .background(AppTheme.colors.surfaceSecondary.copy(alpha = 0.3f), RoundedCornerShape(AppDimensions.cornerRadiusSmall))
                 .padding(horizontal = 8.dp, vertical = 12.dp)
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
@@ -97,12 +100,12 @@ fun SimpleLineChart(
         ) {
             Text(
                 text = timeFormatter.format(Instant.ofEpochMilli(data.first().timestamp)),
-                color = Color.Gray,
+                color = AppTheme.colors.textTertiary,
                 style = MaterialTheme.typography.labelSmall
             )
             Text(
                 text = timeFormatter.format(Instant.ofEpochMilli(data.last().timestamp)),
-                color = Color.Gray,
+                color = AppTheme.colors.textTertiary,
                 style = MaterialTheme.typography.labelSmall
             )
         }
@@ -129,7 +132,7 @@ fun SimpleBarChart(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(130.dp)
-                .background(Color(0xFF1E293B).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                .background(AppTheme.colors.surfaceSecondary.copy(alpha = 0.3f), RoundedCornerShape(AppDimensions.cornerRadiusSmall))
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.Bottom
@@ -155,7 +158,7 @@ fun SimpleBarChart(
             sortedHours.forEach { hour ->
                 Text(
                     text = "${hour}h",
-                    color = Color.Gray,
+                    color = AppTheme.colors.textTertiary,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center
