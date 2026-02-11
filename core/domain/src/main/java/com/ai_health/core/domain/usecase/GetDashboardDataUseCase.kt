@@ -61,16 +61,16 @@ class GetDashboardDataUseCase @Inject constructor(
                 // Prendi la sessione più recente trovata nella finestra "allargata"
                 latestSleepSession = sleep.maxByOrNull { it.endTime },
 
-                stepsHistory = steps.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.count.toDouble()) },
+                stepsHistory = steps.sortedBy { it.startTime }.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.count.toDouble()) },
                 // Nota: La history del sonno mostrerà anche l'inizio della sessione (ieri sera), che è corretto.
-                sleepHistory = sleep.map { 
+                sleepHistory = sleep.sortedBy { it.startTime }.map { 
                     val minutes = java.time.Duration.between(it.startTime, it.endTime).toMinutes().toDouble()
                     HealthMetricPoint(it.startTime.toEpochMilli(), minutes) 
                 },
-                heartRateHistory = heart.map { HealthMetricPoint(it.time.toEpochMilli(), it.beatsPerMinute.toDouble()) },
-                caloriesHistory = calories.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.energyKilocalories) },
-                distanceHistory = distance.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.distanceMeters) },
-                oxygenHistory = oxygen.map { HealthMetricPoint(it.time.toEpochMilli(), it.percentage) }
+                heartRateHistory = heart.sortedBy { it.time }.map { HealthMetricPoint(it.time.toEpochMilli(), it.beatsPerMinute.toDouble()) },
+                caloriesHistory = calories.sortedBy { it.startTime }.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.energyKilocalories) },
+                distanceHistory = distance.sortedBy { it.startTime }.map { HealthMetricPoint(it.startTime.toEpochMilli(), it.distanceMeters) },
+                oxygenHistory = oxygen.sortedBy { it.time }.map { HealthMetricPoint(it.time.toEpochMilli(), it.percentage) }
             )
         }
     }

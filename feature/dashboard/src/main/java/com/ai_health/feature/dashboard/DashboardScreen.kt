@@ -9,6 +9,8 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AutoAwesome // La scintilla ✨
 import androidx.compose.material.icons.rounded.ChatBubbleOutline // Il fumetto 💬
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.AnimatedVisibilityScope
@@ -130,6 +132,7 @@ fun DashboardScreen(
                             unit = "bpm",
                             icon = Icons.Rounded.Favorite,
                             iconColor = AppTheme.colors.error,
+                            shouldPulse = true, // <--- ABILITA IL PULSARE QUI
                             modifier = Modifier.weight(1f),
                             onClick = { onMetricClick("hr") }
                         )
@@ -141,6 +144,7 @@ fun DashboardScreen(
                             unit = "ore",
                             icon = Icons.Rounded.Bedtime,
                             iconColor = AppTheme.colors.accentPurple,
+                            shouldPulse = false, // <--- Qui rimane fermo
                             modifier = Modifier.weight(1f),
                             onClick = { onMetricClick("sleep") }
                         )
@@ -375,8 +379,26 @@ fun MetricMiniCard(
     icon: ImageVector,
     iconColor: Color,
     modifier: Modifier = Modifier,
+    shouldPulse: Boolean = false, // <--- 1. NUOVO PARAMETRO (default false)
     onClick: () -> Unit
 ) {
+    // 2. LOGICA ANIMAZIONE
+    // Se shouldPulse è true, crea una transizione infinita che scala da 1.0 a 1.2
+    val scale by if (shouldPulse) {
+        val infiniteTransition = rememberInfiniteTransition(label = "heartbeat")
+        infiniteTransition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 1.2f, // Quanto diventa grande (120%)
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing), // Durata di un battito
+                repeatMode = RepeatMode.Reverse // Va avanti e indietro
+            ),
+            label = "scale"
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
+
     AppCard(
         modifier = modifier,
         onClick = onClick,
@@ -389,18 +411,26 @@ fun MetricMiniCard(
                     .background(iconColor.copy(alpha = 0.2f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconColor,
+                    // 3. APPLICA LA SCALA ALL'ICONA
+                    modifier = Modifier
+                        .size(18.dp)
+                        .scale(scale)
+                )
             }
 
             Column {
                 Text(
-                    value,
+                    text = value, // Ho corretto 'value' (parametro) invece di value hardcoded
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = AppTheme.colors.textPrimary
                 )
                 Text(
-                    "$unit $title",
+                    text = "$unit $title", // Ho corretto l'uso delle stringhe
                     style = MaterialTheme.typography.bodySmall,
                     color = AppTheme.colors.textSecondary
                 )
