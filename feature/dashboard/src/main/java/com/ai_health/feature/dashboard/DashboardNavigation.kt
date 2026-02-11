@@ -39,6 +39,18 @@ fun NavGraphBuilder.dashboardGraph(
                 onMetricClick = onMetricClick,
                 onChatClick = {
                     navController.navigate("chat")
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
+                }
+            )
+        }
+
+        // Settings Screen
+        composable(route = "settings") {
+            SettingsScreen(
+                onBack = {
+                    navController.popBackStack()
                 }
             )
         }

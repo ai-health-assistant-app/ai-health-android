@@ -83,7 +83,6 @@ class AnalyzeSleepQualityUseCase @Inject constructor() {
         println("[SleepScoring] " + "Session ID: ${session.id}")
         println("[SleepScoring] " + "Stages count: ${stages.size}")
         println("[SleepScoring] " + "HR samples received: ${heartRates.size}")
-        println("[SleepScoring] " + "User baseline RHR: $userBaselineRhr bpm")
 
         if (stages.isEmpty()) {
             println("[SleepScoring] WARN: " + "❌ No sleep stages found - returning empty result")

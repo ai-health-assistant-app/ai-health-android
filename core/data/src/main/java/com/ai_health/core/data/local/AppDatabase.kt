@@ -42,9 +42,10 @@ import com.ai_health.core.data.local.entity.SyncTokenEntity
         BasalMetabolicRateEntity::class,
         SleepSessionEntity::class,
         SleepStageEntity::class,
-        SyncTokenEntity::class          // NEW: Token per Changes API
+        SyncTokenEntity::class,          // NEW: Token per Changes API
+        com.ai_health.core.data.local.entity.UserProfileEntity::class // Added User Profile
     ],
-    version = 5,
+    version = 6, // Incrementing version because schema changed
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -52,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun healthMetricDao(): HealthMetricDao
     abstract fun sleepDao(): SleepDao
     abstract fun syncTokenDao(): SyncTokenDao  // NEW: Per gestione token sincronizzazione
+    abstract fun userDao(): com.ai_health.core.data.local.dao.UserDao
     
     // NOTA: Il metodo getDatabase() è stato rimosso.
     // La creazione del DB crittografato è gestita da DataModule via Hilt DI.
