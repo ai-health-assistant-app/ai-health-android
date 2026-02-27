@@ -57,7 +57,9 @@ fun NavGraphBuilder.dashboardGraph(
 
         // Chat Screen
         composable(route = "chat") {
+            val viewModel: ChatViewModel = hiltViewModel()
             ChatScreen(
+                viewModel = viewModel,
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = this, // 'this' è AnimatedVisibilityScope
                 onBack = {

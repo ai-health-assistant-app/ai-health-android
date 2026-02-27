@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "68795703297",
+    "project_id": "health-twin-app",
+    "storage_bucket": "health-twin-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:68795703297:android:49e929a469f9ff530c6000",
+        "android_client_info": {
+          "package_name": "com.ai_health.assistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB5IcDGrl7ENwJhnaSPQiZX3jqmFH7N7Oo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

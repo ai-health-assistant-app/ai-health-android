@@ -32,4 +32,24 @@ class SettingsViewModel @Inject constructor(
             repository.saveUser(updatedProfile)
         }
     }
+
+    fun signIn(idToken: String) {
+        android.util.Log.d("SettingsViewModel", "signIn: called with token length ${idToken.length}")
+        viewModelScope.launch {
+            repository.signInWithGoogle(idToken)
+                .onFailure { e ->
+                    android.util.Log.e("SettingsViewModel", "signIn: failure", e)
+                    e.printStackTrace()
+                }
+                .onSuccess {
+                    android.util.Log.d("SettingsViewModel", "signIn: success")
+                }
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            repository.signOut()
+        }
+    }
 }
