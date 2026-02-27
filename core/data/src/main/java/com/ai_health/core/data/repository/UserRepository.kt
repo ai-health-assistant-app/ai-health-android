@@ -6,4 +6,8 @@ import kotlinx.coroutines.flow.Flow
 interface UserRepository {
     val userProfile: Flow<UserProfileEntity>
     suspend fun saveUser(user: UserProfileEntity)
+    
+    suspend fun signInWithGoogle(idToken: String): Result<Unit>
+    suspend fun signOut()
+    suspend fun getAuthToken(): String?
 }

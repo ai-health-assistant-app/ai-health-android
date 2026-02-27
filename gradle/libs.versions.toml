@@ -1,3 +1,5 @@
+
+
 [versions]
 # Core e Compilatore
 agp = "8.13.2"
@@ -15,8 +17,8 @@ activityCompose = "1.9.3"
 navigationCompose = "2.8.5"
 healthConnect = "1.1.0-alpha10"
 cameraX = "1.4.0"
-# retrofit = "2.11.0"
-# okhttp = "4.12.0"
+retrofit = "2.11.0"
+okhttp = "4.12.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
@@ -26,6 +28,11 @@ appcompat = "1.7.1"
 material = "1.13.0"
 mockk = "1.13.13"
 javaxInject = "1"
+googleServices = "4.4.1"
+firebaseAuth = "22.3.1"
+firebaseFirestore = "25.1.0"
+credentials = "1.2.2"
+googleId = "1.1.1"
 
 [libraries]
 # AndroidX Core & Lifecycle
@@ -62,6 +69,9 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 # Health Connect
 androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 
+# Image Loading
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version = "2.6.0" }
+
 # Room & DataStore
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
@@ -69,10 +79,17 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "dataStore" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 
+# Auth
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version.ref = "firebaseAuth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
+
 # Network - Per comunicazione con Gemini/LLM Backend
-# retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
-# retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
-# okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+retrofit-core = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -95,3 +112,4 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }

@@ -34,6 +34,12 @@ abstract class RepositoryModule {
     abstract fun bindUserRepository(
         userRepositoryImpl: com.ai_health.core.data.repository.UserRepositoryImpl
     ): com.ai_health.core.data.repository.UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindChatRepository(
+        chatRepositoryImpl: com.ai_health.core.data.repository.ChatRepositoryImpl
+    ): com.ai_health.core.domain.repository.ChatRepository
 }
 
 @Module
