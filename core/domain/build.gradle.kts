@@ -18,4 +18,5 @@ tasks.withType<KotlinCompile> {
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.javax.inject)
+    testImplementation("junit:junit:4.13.2")
 }
