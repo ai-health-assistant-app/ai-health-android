@@ -3,12 +3,17 @@ package com.ai_health.feature.dashboard
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ai_health.core.domain.model.BiometricReport
 import com.ai_health.core.domain.model.HeartRateRec
+import com.ai_health.core.domain.model.HrSample
 import com.ai_health.core.domain.model.SleepSessionRec
 import com.ai_health.core.domain.model.SleepQualityResult
+import com.ai_health.core.domain.model.UserBiometricProfile
 import com.ai_health.core.domain.usecase.GetDashboardDataUseCase
+import com.ai_health.core.domain.usecase.biometric.BiometricEngineUseCase
 import com.ai_health.core.domain.usecase.sleep.AnalyzeSleepQualityUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import java.util.Locale
 import java.time.Instant
@@ -38,6 +44,7 @@ private data class Quadruple<A, B, C, D>(
 class DashboardViewModel @Inject constructor(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
     private val analyzeSleepQualityUseCase: AnalyzeSleepQualityUseCase,
+    private val biometricEngineUseCase: BiometricEngineUseCase,
     private val healthRepository: HealthRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -56,6 +63,10 @@ class DashboardViewModel @Inject constructor(
     // Pagination state
     private val _weeksLoaded = MutableStateFlow(INITIAL_WEEKS_TO_LOAD)
     private val _isLoadingMoreSleep = MutableStateFlow(false)
+    
+    // Biometric engine state
+    private val _biometricReport = MutableStateFlow<BiometricReport?>(null)
+    private val _isBiometricLoading = MutableStateFlow(false)
 
 
     // Fetch sleep sessions for the last 30 days
@@ -87,6 +98,9 @@ class DashboardViewModel @Inject constructor(
                 baselineRhr = baselineRhr,
                 weeksToShow = weeksLoaded
             )
+            
+            // Trigger biometric computation with fresh data
+            computeBiometrics(allHeartRates, sleepSessions, baselineRhr)
 
             DashboardUiState(
                 isLoading = false,
@@ -113,7 +127,9 @@ class DashboardViewModel @Inject constructor(
                 },
                 
                 sleepNights = sleepNights,
-                isLoadingMoreSleep = isLoadingMore
+                isLoadingMoreSleep = isLoadingMore,
+                biometricReport = _biometricReport.value,
+                isBiometricLoading = _isBiometricLoading.value
             )
         }
         .catch { e ->
@@ -270,6 +286,113 @@ class DashboardViewModel @Inject constructor(
         if (currentPage >= totalPages - 2 && !_isLoadingMoreSleep.value) {
             loadPreviousWeek()
         }
+    }
+    
+    // =========================================================================
+    // Biometric Engine
+    // =========================================================================
+    
+    /**
+     * Runs the Biometric Engine pipeline on the available health data.
+     * Computes TRIMP, Fitness-Fatigue, Z-Score, Dipping, Baevsky SI, and Readiness.
+     *
+     * Called automatically when health data updates. Runs on Dispatchers.Default
+     * to avoid blocking the main thread with math-heavy computations.
+     */
+    private fun computeBiometrics(
+        allHeartRates: List<HeartRateRec>,
+        sleepSessions: List<SleepSessionRec>,
+        baselineRhr: Int
+    ) {
+        if (allHeartRates.isEmpty()) return
+        if (_isBiometricLoading.value) return
+        
+        viewModelScope.launch {
+            _isBiometricLoading.value = true
+            try {
+                val report = withContext(Dispatchers.Default) {
+                    // Default profile (can be customized via user settings)
+                    val profile = UserBiometricProfile(
+                        hrMax = 190,    // Conservative default; ideally from user profile
+                        hrRest = baselineRhr,
+                        isMale = true   // Default; could come from User.gender
+                    )
+                    
+                    // Build daily RHR history from the lowest nocturnal HR per day
+                    val dailyRhrHistory = buildDailyRhrHistory(allHeartRates)
+                    
+                    // Get latest sleep analysis for dipping data
+                    val latestSleep = sleepSessions.maxByOrNull { it.endTime }
+                    var daytimeAvg: Double? = null
+                    var nocturnalAvg: Double? = null
+                    var nocturnalSamples: List<HrSample> = emptyList()
+                    var sleepScore: Int? = null
+                    
+                    if (latestSleep != null) {
+                        val hrForSession = getHeartRatesForSession(allHeartRates, latestSleep)
+                        val sleepStart = latestSleep.startTime
+                        val sleepEnd = latestSleep.endTime
+                        
+                        val daytimeHr = hrForSession.filter { 
+                            it.time < sleepStart 
+                        }
+                        val nocturnalHr = hrForSession.filter { 
+                            it.time >= sleepStart && it.time <= sleepEnd 
+                        }
+                        
+                        if (daytimeHr.isNotEmpty()) {
+                            daytimeAvg = daytimeHr.map { it.beatsPerMinute.toDouble() }.average()
+                        }
+                        if (nocturnalHr.isNotEmpty()) {
+                            nocturnalAvg = nocturnalHr.map { it.beatsPerMinute.toDouble() }.average()
+                            val baseMs = nocturnalHr.first().time.toEpochMilli()
+                            nocturnalSamples = nocturnalHr.map {
+                                HrSample(
+                                    offsetMs = it.time.toEpochMilli() - baseMs,
+                                    bpm = it.beatsPerMinute.toDouble()
+                                )
+                            }
+                        }
+                        
+                        // Get sleep quality score from cache or compute
+                        val analysis = sleepAnalysisCache[latestSleep.id]
+                        sleepScore = analysis?.totalScore
+                    }
+                    
+                    biometricEngineUseCase(
+                        heartRateRecords = allHeartRates,
+                        profile = profile,
+                        sleepScore = sleepScore,
+                        dailyRhrHistory = dailyRhrHistory,
+                        daytimeAvgHr = daytimeAvg,
+                        nocturnalAvgHr = nocturnalAvg,
+                        nocturnalHrSamples = nocturnalSamples
+                    )
+                }
+                _biometricReport.value = report
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isBiometricLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Builds daily RHR values from the last 30 days of heart rate data.
+     * Uses the lowest 10% of samples per day as a proxy for resting HR.
+     */
+    private fun buildDailyRhrHistory(heartRates: List<HeartRateRec>): List<Double> {
+        val zone = ZoneId.systemDefault()
+        return heartRates
+            .groupBy { it.time.atZone(zone).toLocalDate() }
+            .toSortedMap()
+            .mapNotNull { (_, records) ->
+                if (records.isEmpty()) return@mapNotNull null
+                val sorted = records.sortedBy { it.beatsPerMinute }
+                val lowestCount = (sorted.size * 0.1).toInt().coerceAtLeast(1)
+                sorted.take(lowestCount).map { it.beatsPerMinute.toDouble() }.average()
+            }
     }
 }
 

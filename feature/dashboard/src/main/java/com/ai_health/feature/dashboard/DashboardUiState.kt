@@ -1,5 +1,6 @@
 package com.ai_health.feature.dashboard
 
+import com.ai_health.core.domain.model.BiometricReport
 import com.ai_health.ui.components.ChartDataPoint
 import java.time.LocalDate
 
@@ -34,8 +35,11 @@ data class DashboardUiState(
     val selectedSleepSession: com.ai_health.core.domain.model.SleepSessionRec? = null,
     val sleepQualityAnalysis: com.ai_health.core.domain.model.SleepQualityResult? = null,
     
-    // Sleep History for Date Navigation - NEW STRUCTURE
-    // This replaces the old sleepSessions and sleepAnalyses with a unified structure
+    // Sleep History for Date Navigation
     val sleepNights: List<SleepNightData> = emptyList(),
-    val isLoadingMoreSleep: Boolean = false
+    val isLoadingMoreSleep: Boolean = false,
+    
+    // Biometric Engine
+    val biometricReport: BiometricReport? = null,
+    val isBiometricLoading: Boolean = false
 )
