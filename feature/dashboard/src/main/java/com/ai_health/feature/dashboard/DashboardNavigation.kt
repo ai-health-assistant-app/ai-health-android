@@ -94,6 +94,14 @@ fun NavGraphBuilder.dashboardGraph(
                     },
                     onBack = onBack
                 )
+            } else if (type == "hr") {
+                HeartRateDetailScreen(
+                    biometricReport = state.biometricReport,
+                    heartRateFormatted = state.heartRateFormatted,
+                    oxygenFormatted = state.oxygenFormatted,
+                    isLoading = state.isBiometricLoading,
+                    onBack = onBack
+                )
             } else {
                 DetailChartScreen(
                     metricType = type,

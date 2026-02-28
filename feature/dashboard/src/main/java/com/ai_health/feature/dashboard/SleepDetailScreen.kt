@@ -1,5 +1,8 @@
 package com.ai_health.feature.dashboard
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -11,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,15 +22,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ai_health.core.domain.model.SleepQualityResult
@@ -41,15 +46,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import com.ai_health.ui.theme.AppTheme
-import com.ai_health.ui.components.AppBackground
-import com.ai_health.ui.components.AppCard
-import com.ai_health.ui.components.CardVariant
-import com.ai_health.ui.theme.AppDimensions
-import com.ai_health.ui.theme.SleepDeep
-import com.ai_health.ui.theme.SleepLight
-import com.ai_health.ui.theme.SleepREM
-import com.ai_health.ui.theme.SleepAwake
+import com.ai_health.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -77,78 +74,76 @@ fun SleepDetailScreen(
         onPageChanged(pagerState.currentPage, sleepNights.size)
     }
     
-    AppBackground(contentPadding = false) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Dettaglio Sonno", color = AppTheme.colors.textPrimary) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = AppTheme.colors.textPrimary
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Dettaglio Sonno") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = TextPrimary,
+                    navigationIconContentColor = TextPrimary
                 )
-            },
-            containerColor = Color.Transparent
-        ) { padding ->
+            )
+        },
+        containerColor = Color.Transparent
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundGradient)
+                .padding(padding)
+        ) {
         if (sleepNights.isEmpty()) {
-            // Empty state - no nights loaded at all
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "Nessun dato sul sonno disponibile",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.textTertiary
+                    color = TextTertiary
                 )
             }
         } else {
             HorizontalPager(
                 state = pagerState,
-                reverseLayout = true, // Older nights on left, newer on right
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
+                reverseLayout = true,
+                modifier = Modifier.fillMaxSize()
             ) { page ->
                 val nightData = sleepNights[page]
                 
                 if (nightData.session != null && nightData.analysis != null) {
-                    // Night with data - show the full detail
                     SleepDetailContent(
                         session = nightData.session,
                         analysis = nightData.analysis
                     )
                 } else {
-                    // Night without data - show empty state with date
                     EmptyNightScreen(date = nightData.date)
                 }
             }
             
-            // Show loading indicator at the bottom when loading more
             if (isLoadingMore) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.BottomCenter
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.padding(16.dp),
-                        color = AppTheme.colors.accentBlue
+                        color = NeonBlue
                     )
                 }
             }
         }
+        }
     }
-}
 }
 
 
@@ -157,93 +152,39 @@ private fun SleepDetailContent(
     session: SleepSessionRec,
     analysis: SleepQualityResult
 ) {
-    // Generiamo il feedback al volo qui
-    val insightText = remember(analysis) { SleepFeedbackGenerator.getInsight(analysis) }
-    val headlineText = remember(analysis) { SleepFeedbackGenerator.getHeadline(analysis.totalScore) }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Header
         SleepDateHeader(session.startTime, session.endTime)
 
-        // Sleep Score Indicator
-        SleepScoreCircle(score = analysis.totalScore)
+        // Sleep Score Gauge (with breakdown inside, like HR screen)
+        SleepScoreGaugeCard(score = analysis.totalScore, breakdown = analysis.breakdown)
 
-        // --- NUOVO BLOCCO FEEDBACK ---
-        AppCard(
-            variant = CardVariant.HIGHLIGHT,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = headlineText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = AppTheme.colors.accentBlue,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Text(
-                    text = insightText, // Usiamo il testo generato, non quello del DB
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = AppTheme.colors.textPrimary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        // Score Breakdown Section (if available)
-        analysis.breakdown?.let { breakdown ->
-            Text(
-                text = "Composizione Punteggio",
-                style = MaterialTheme.typography.titleMedium,
-                color = AppTheme.colors.textPrimary,
-                modifier = Modifier.align(Alignment.Start)
-            )
-            ScoreBreakdownCard(breakdown = breakdown)
-        }
-
-        // HR Metrics Section (if available)
+        // HR Metrics Section
         analysis.metrics?.let { metrics ->
             if (metrics.nocturnalHrAvg != null) {
-                Text(
-                    text = "Analisi Cardiaca",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = AppTheme.colors.textPrimary,
-                    modifier = Modifier.align(Alignment.Start)
-                )
+                SleepSectionHeader(title = "Analisi Cardiaca", icon = Icons.Default.Favorite)
                 HrMetricsCard(metrics = metrics)
             }
         }
 
-        // Timeline Chart
-        Text(
-            text = "Ipogramma",
-            style = MaterialTheme.typography.titleMedium,
-            color = AppTheme.colors.textPrimary,
-            modifier = Modifier.align(Alignment.Start)
-        )
+        // Timeline
+        SleepSectionHeader(title = "Ipogramma", icon = Icons.Default.Timeline)
         SleepTimelineChart(
             stages = session.stages,
             totalDuration = Duration.between(session.startTime, session.endTime)
         )
 
-        // Stats Grid
-        Text(
-            text = "Statistiche Fasi",
-            style = MaterialTheme.typography.titleMedium,
-            color = AppTheme.colors.textPrimary,
-            modifier = Modifier.align(Alignment.Start)
-        )
+        // Stage Stats
+        SleepSectionHeader(title = "Statistiche Fasi", icon = Icons.Default.PieChart)
         SleepStageStatsGrid(analysis = analysis)
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -256,17 +197,20 @@ fun SleepDateHeader(start: Instant, end: Instant) {
     val startStr = timeFormatter.format(start)
     val endStr = timeFormatter.format(end)
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Text(
             text = "Notte del $dateStr",
             style = MaterialTheme.typography.headlineSmall,
-            color = AppTheme.colors.textPrimary,
+            color = TextPrimary,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = "$startStr - $endStr",
             style = MaterialTheme.typography.bodyMedium,
-            color = AppTheme.colors.textTertiary
+            color = TextTertiary
         )
     }
 }
@@ -286,35 +230,32 @@ private fun EmptyNightScreen(date: LocalDate) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Date display
             Text(
                 text = "Notte del $dateStr",
                 style = MaterialTheme.typography.headlineSmall,
-                color = AppTheme.colors.textPrimary,
+                color = TextPrimary,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
             
-            // Icon or visual indicator
             Icon(
                 imageVector = Icons.Outlined.Info,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = AppTheme.colors.textDisabled
+                tint = TextDisabled
             )
             
-            // Message
             Text(
                 text = "Nessun dato sul sonno disponibile per questa notte",
                 style = MaterialTheme.typography.bodyLarge,
-                color = AppTheme.colors.textTertiary,
+                color = TextTertiary,
                 textAlign = TextAlign.Center
             )
             
             Text(
                 text = "Scorri per visualizzare le altre notti",
                 style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textDisabled,
+                color = TextDisabled,
                 textAlign = TextAlign.Center
             )
         }
@@ -322,53 +263,119 @@ private fun EmptyNightScreen(date: LocalDate) {
 }
 
 @Composable
-fun SleepScoreCircle(score: Int) {
+fun SleepScoreGaugeCard(score: Int, breakdown: ScoreBreakdown?) {
     val scoreColor = when {
-        score >= 80 -> AppTheme.colors.success // Green
-        score >= 60 -> AppTheme.colors.warning // Yellow
-        else -> AppTheme.colors.error // Red
+        score >= 80 -> SuccessGreen
+        score >= 60 -> WarningAmber
+        else -> ErrorRed
     }
 
-    val trackColor = AppTheme.colors.surfaceSecondary
+    val animatedProgress = remember { Animatable(0f) }
+    LaunchedEffect(score) {
+        animatedProgress.animateTo(
+            targetValue = score / 100f,
+            animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing)
+        )
+    }
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.size(180.dp)
+    val levelText = when {
+        score >= 85 -> "Eccellente"
+        score >= 70 -> "Buono"
+        score >= 50 -> "Sufficiente"
+        else -> "Da migliorare"
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.7f)),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 20.dp.toPx()
-            
-            // Background Track
-            drawArc(
-                color = trackColor,
-                startAngle = 0f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(width = strokeWidth)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Qualità del Sonno",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextSecondary
             )
 
-            // Progress Arc
-            drawArc(
-                color = scoreColor,
-                startAngle = -90f,
-                sweepAngle = (360f * (score / 100f)),
-                useCenter = false,
-                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-            )
-        }
+            Spacer(modifier = Modifier.height(20.dp))
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = score.toString(),
-                style = MaterialTheme.typography.displayMedium,
-                color = AppTheme.colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "Score",
-                style = MaterialTheme.typography.labelMedium,
-                color = AppTheme.colors.textTertiary
-            )
+            // Arc Gauge
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(180.dp)
+            ) {
+                Canvas(modifier = Modifier.size(180.dp)) {
+                    val strokeWidth = 14.dp.toPx()
+                    val arcSize = size.minDimension - strokeWidth
+                    val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
+
+                    // Background arc
+                    drawArc(
+                        color = MidnightLight,
+                        startAngle = 135f,
+                        sweepAngle = 270f,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = Size(arcSize, arcSize),
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+
+                    // Progress arc
+                    drawArc(
+                        color = scoreColor,
+                        startAngle = 135f,
+                        sweepAngle = 270f * animatedProgress.value,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = Size(arcSize, arcSize),
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+
+                // Score text inside gauge
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = score.toString(),
+                        style = MaterialTheme.typography.displayMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 48.sp
+                        ),
+                        color = scoreColor
+                    )
+                    Text(
+                        text = "/100",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextTertiary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Level label
+            Surface(
+                color = scoreColor.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    text = levelText,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = scoreColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // Breakdown bars (inside the card, like HR screen)
+            breakdown?.let { bd ->
+                Spacer(modifier = Modifier.height(16.dp))
+                SleepBreakdownRow(breakdown = bd)
+            }
         }
     }
 }
@@ -376,19 +383,18 @@ fun SleepScoreCircle(score: Int) {
 @Composable
 fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
     if (totalDuration.isZero || stages.isEmpty()) {
-        Text("No Data", color = AppTheme.colors.textTertiary)
+        Text("No Data", color = TextTertiary)
         return
     }
 
     val totalMillis = totalDuration.toMillis().coerceAtLeast(1)
 
-    // Container for the bar
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(40.dp)
-            .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp))
-            .padding(2.dp) // Optional padding inside container
+            .background(MidnightLight, RoundedCornerShape(8.dp))
+            .padding(2.dp)
     ) {
         stages.forEach { stage ->
             val stageDuration = Duration.between(stage.startTime, stage.endTime).toMillis()
@@ -405,7 +411,6 @@ fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
         }
     }
     
-    // Legend (Optional but good for UX)
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -421,7 +426,7 @@ fun SleepTimelineChart(stages: List<SleepStageRec>, totalDuration: Duration) {
                     modifier = Modifier.size(8.dp).background(getStageColor(type), RoundedCornerShape(2.dp))
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(label, color = AppTheme.colors.textTertiary, style = MaterialTheme.typography.labelSmall)
+                Text(label, color = TextTertiary, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -436,14 +441,14 @@ fun SleepStageStatsGrid(analysis: SleepQualityResult) {
                 title = "Profondo",
                 duration = analysis.deepSleepDuration,
                 percentage = analysis.deepSleepPercentage,
-                color = getStageColor(SleepStageType.DEEP)
+                color = SleepDeep
             )
             StageStatCard(
                 modifier = Modifier.weight(1f),
                 title = "REM",
                 duration = analysis.remSleepDuration,
                 percentage = analysis.remSleepPercentage,
-                color = getStageColor(SleepStageType.REM)
+                color = SleepREM
             )
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -451,19 +456,15 @@ fun SleepStageStatsGrid(analysis: SleepQualityResult) {
                 modifier = Modifier.weight(1f),
                 title = "Leggero",
                 duration = analysis.lightSleepDuration,
-                // Percentage not in result model explicitly for Light/Awake in prompt, calculate or hide?
-                // Prompt: "se disponibile nel analysisResult". 
-                // Model has deepSleepPercentage, remSleepPercentage. 
-                // We can imply light/awake via duration calc if needed, or just show duration.
                 percentage = null, 
-                color = getStageColor(SleepStageType.LIGHT)
+                color = SleepLight
             )
             StageStatCard(
                 modifier = Modifier.weight(1f),
                 title = "Sveglio",
                 duration = analysis.awakeDuration,
                 percentage = null,
-                color = getStageColor(SleepStageType.AWAKE)
+                color = SleepAwake
             )
         }
     }
@@ -481,9 +482,10 @@ fun StageStatCard(
     val minutes = duration.toMinutes() % 60
     val timeStr = "${hours}h ${minutes}m"
 
-    AppCard(
-        variant = CardVariant.NORMAL,
-        modifier = modifier
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(14.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -492,19 +494,19 @@ fun StageStatCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(12.dp).background(color, RoundedCornerShape(4.dp)))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = AppTheme.colors.textTertiary)
+                Text(title, style = MaterialTheme.typography.bodyMedium, color = TextTertiary)
             }
             Text(
                 text = timeStr,
                 style = MaterialTheme.typography.titleLarge,
-                color = AppTheme.colors.textPrimary,
+                color = TextPrimary,
                 fontWeight = FontWeight.Bold
             )
             if (percentage != null) {
                 Text(
                     text = "$percentage%",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppTheme.colors.textSecondary
+                    color = TextSecondary
                 )
             }
         }
@@ -518,101 +520,70 @@ fun getStageColor(stage: SleepStageType): Color {
         SleepStageType.REM -> SleepREM
         SleepStageType.LIGHT -> SleepLight
         SleepStageType.AWAKE -> SleepAwake
-        SleepStageType.OUT_OF_BED -> AppTheme.colors.textDisabled
-        SleepStageType.SLEEPING -> AppTheme.colors.accentBlue
-        SleepStageType.UNKNOWN -> AppTheme.colors.textDisabled
+        SleepStageType.OUT_OF_BED -> TextDisabled
+        SleepStageType.SLEEPING -> NeonBlue
+        SleepStageType.UNKNOWN -> TextDisabled
     }
 }
 
 @Composable
-fun ScoreBreakdownCard(breakdown: ScoreBreakdown) {
-    AppCard(
-        variant = CardVariant.NORMAL,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Fattori del Riposo",
-                style = MaterialTheme.typography.titleMedium,
-                color = AppTheme.colors.textPrimary
-            )
+private fun SleepBreakdownRow(breakdown: ScoreBreakdown) {
+    val components = listOf(
+        Triple("Profondità", breakdown.architectureScore, 40.0),
+        Triple("Recupero Fisico", breakdown.dippingScore, 30.0),
+        Triple("Rilassamento", breakdown.rhrScore, 20.0),
+        Triple("Ritmo Circadiano", breakdown.timingScore, 10.0)
+    )
 
-            // 1. Architecture -> "Profondità del Sonno"
-            // L'utente capisce che riguarda quanto bene ha dormito, non le fasi tecniche.
-            ScoreProgressRow(
-                label = "Profondità",
-                score = breakdown.architectureScore,
-                maxScore = 40.0,
-                color = AppTheme.colors.accentBlue // Blu
-            )
-
-            // 2. Dipping -> "Recupero Fisico"
-            // Se il dipping è basso, il recupero è basso. Niente panico medico.
-            ScoreProgressRow(
-                label = "Recupero Fisico",
-                score = breakdown.dippingScore,
-                maxScore = 30.0,
-                color = AppTheme.colors.accentGreen // Verde
-            )
-
-            // 3. RHR -> "Rilassamento Cardiaco"
-            ScoreProgressRow(
-                label = "Rilassamento",
-                score = breakdown.rhrScore,
-                maxScore = 20.0,
-                color = AppTheme.colors.accentOrange // Arancio
-            )
-
-            // 4. Timing Nadir -> "Allineamento Circadiano"
-            // Suona sofisticato ma non patologico. Indica se sei andato a letto all'ora giusta.
-            ScoreProgressRow(
-                label = "Ritmo Circadiano",
-                score = breakdown.timingScore,
-                maxScore = 10.0,
-                color = AppTheme.colors.accentPurple // Viola
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        components.forEach { (label, value, max) ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextTertiary,
+                    modifier = Modifier.width(120.dp)
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    // Background
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(MidnightLight)
+                    )
+                    // Progress
+                    val fraction = (value / max).toFloat().coerceIn(0f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(NeonBlue, PurpleGlow)
+                                )
+                            )
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "%.0f".format(value),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.width(24.dp),
+                    textAlign = TextAlign.End
+                )
+            }
         }
     }
 }
 
-@Composable
-private fun ScoreProgressRow(
-    label: String,
-    score: Double,
-    maxScore: Double,
-    color: Color
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textTertiary
-            )
-            Text(
-                text = "%.0f / %.0f".format(score, maxScore),
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        LinearProgressIndicator(
-            progress = { (score / maxScore).toFloat().coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp),
-            color = color,
-            trackColor = AppTheme.colors.surfaceSecondary,
-            strokeCap = StrokeCap.Round
-        )
-    }
-}
+
 
 object SleepFeedbackGenerator {
     fun getInsight(analysis: SleepQualityResult): String {
@@ -658,9 +629,10 @@ object SleepFeedbackGenerator {
 
 @Composable
 fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
-    AppCard(
-        variant = CardVariant.NORMAL,
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.6f)),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -669,26 +641,23 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
             Text(
                 text = "Salute Cardiaca Notturna",
                 style = MaterialTheme.typography.titleMedium,
-                color = AppTheme.colors.textPrimary
+                color = TextPrimary
             )
 
-            // ROW 1: I dati "Grezi" sicuri (BPM)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Usiamo la media notturna (RHR approssimativo)
                 metrics.nocturnalHrAvg?.let { hr ->
                     HrMetricBox(
                         modifier = Modifier.weight(1f),
                         label = "Media Notturna",
                         value = "$hr",
                         unit = "bpm",
-                        icon = null // Qui potresti mettere un'icona cuore
+                        icon = null
                     )
                 }
 
-                // Usiamo la minima assoluta (Lowest)
                 metrics.lowestNocturnalHr?.let { hr ->
                     HrMetricBox(
                         modifier = Modifier.weight(1f),
@@ -700,23 +669,18 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
                 }
             }
 
-            // ROW 2: L'Interpretazione (Black Box)
-            // Qui nascondiamo la logica complessa del Dipping/Nadir
-            // Mostriamo solo se il "Motore" si è riposato bene.
-
             val dippingState = metrics.dippingPercent ?: 0.0
 
-            // Logica di traduzione "Whoop Style"
             val (statusText, statusColor) = when {
-                dippingState < 0 -> "Sotto Sforzo" to AppTheme.colors.error // Era Reverse Dipper
-                dippingState < 10 -> "Recupero Parziale" to AppTheme.colors.warning // Era Non-Dipper
-                else -> "Recupero Ottimale" to AppTheme.colors.success // Normal/Extreme
+                dippingState < 0 -> "Sotto Sforzo" to ErrorRed
+                dippingState < 10 -> "Recupero Parziale" to WarningAmber
+                else -> "Recupero Ottimale" to SuccessGreen
             }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp))
+                    .background(MidnightLight, RoundedCornerShape(8.dp))
                     .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -725,7 +689,7 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
                     Text(
                         text = "Stato del Sistema Nervoso",
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppTheme.colors.textTertiary
+                        color = TextTertiary
                     )
                     Text(
                         text = statusText,
@@ -735,17 +699,12 @@ fun HrMetricsCard(metrics: com.ai_health.core.domain.model.SleepMetrics) {
                     )
                 }
 
-                // Un piccolo indicatore visivo minimalista
                 Box(
                     modifier = Modifier
                         .size(12.dp)
                         .background(statusColor, RoundedCornerShape(50))
                 )
             }
-
-            // Nota: Abbiamo rimosso completamente "Data Quality Score".
-            // Se i dati fanno schifo, l'utente vedrà "Sotto Sforzo" o "Recupero Parziale",
-            // che è comunque un consiglio valido (forse la band ha misurato male perché si muoveva troppo).
         }
     }
 }
@@ -757,25 +716,51 @@ private fun HrMetricBox(
     label: String,
     value: String,
     unit: String,
-    icon: Any? // Placeholder per future icone
+    icon: Any?
 ) {
     Column(
         modifier = modifier
-            .background(AppTheme.colors.surfaceSecondary, RoundedCornerShape(8.dp)) // Grigio leggermente più chiaro
+            .background(MidnightLight, RoundedCornerShape(8.dp))
             .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = value,
             style = MaterialTheme.typography.headlineMedium,
-            color = AppTheme.colors.textPrimary,
+            color = TextPrimary,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "$unit $label", // Es: "bpm Media Notturna"
+            text = "$unit $label",
             style = MaterialTheme.typography.bodySmall,
-            color = AppTheme.colors.textTertiary,
+            color = TextTertiary,
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+// =============================================================================
+// Section Header (matching HR screen style)
+// =============================================================================
+
+@Composable
+private fun SleepSectionHeader(title: String, icon: ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 8.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = NeonBlueBright,
+            modifier = Modifier.size(20.dp)
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = TextPrimary,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }

@@ -152,16 +152,6 @@ fun DashboardScreen(
                     }
                 }
 
-                // 4. Extra (Oxygen)
-                item {
-                    MetricWideRow(
-                        title = "Ossigenazione (SpO2)",
-                        value = state.oxygenFormatted,
-                        icon = Icons.Rounded.Air,
-                        animationType = IconAnimationType.FLOAT,
-                        onClick = { onMetricClick("ox") }
-                    )
-                }
                 // 5. Hero Section: Daily Focus
                 item {
                     Text(
