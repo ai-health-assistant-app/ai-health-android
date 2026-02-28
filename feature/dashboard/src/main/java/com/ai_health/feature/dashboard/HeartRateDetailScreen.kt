@@ -76,79 +76,99 @@ fun HeartRateDetailScreen(
                 .background(BackgroundGradient)
                 .padding(padding)
         ) {
-            if (isLoading || biometricReport == null) {
-                // Loading state
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = NeonBlue,
-                        strokeWidth = 3.dp
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (isLoading) "Analisi in corso..." else "Dati insufficienti per l'analisi",
-                        color = TextSecondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // 1. Z-Score Alert Banner
-                    biometricReport.rhrAnomaly?.let { anomaly ->
-                        if (anomaly.alertLevel != AlertLevel.GREEN) {
-                            ZScoreAlertBanner(anomaly = anomaly)
-                        }
-                    }
+            HeartRateDetailContent(
+                biometricReport = biometricReport,
+                heartRateFormatted = heartRateFormatted,
+                oxygenFormatted = oxygenFormatted,
+                isLoading = isLoading
+            )
+        }
+    }
+}
 
-                    // 2. Readiness Score Gauge
-                    biometricReport.readiness?.let { readiness ->
-                        ReadinessGaugeCard(readiness = readiness)
-                    }
-
-                    // 3. Vitals Summary (HR + SpO2 side by side)
-                    VitalsRow(
-                        heartRateFormatted = heartRateFormatted,
-                        oxygenFormatted = oxygenFormatted
-                    )
-
-                    // 4. Training Load Section
-                    SectionHeader(title = "Allenamento", icon = Icons.Default.FitnessCenter)
-
-                    biometricReport.trimpResult?.let { trimp ->
-                        TrimpCard(trimp = trimp)
-                    }
-
-                    biometricReport.fitnessFatigue?.let { ff ->
-                        FitnessFatigueCards(fitnessFatigue = ff)
-                    }
-
-                    // 5. Autonomic Health Section
-                    SectionHeader(title = "Recupero e Benessere", icon = Icons.Default.MonitorHeart)
-
-                    biometricReport.sleepDipping?.let { dipping ->
-                        SleepDippingCard(dipping = dipping)
-                    }
-
-                    biometricReport.baevskyStress?.let { stress ->
-                        BaevskyStressCard(stress = stress)
-                    }
-
-                    biometricReport.rhrAnomaly?.let { anomaly ->
-                        RhrTrendCard(anomaly = anomaly)
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
+/**
+ * Reusable content composable for heart rate detail.
+ * Can be used standalone inside the Dashboard's expanded card overlay.
+ */
+@Composable
+fun HeartRateDetailContent(
+    biometricReport: BiometricReport?,
+    heartRateFormatted: String,
+    oxygenFormatted: String,
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (isLoading || biometricReport == null) {
+        // Loading state
+        Column(
+            modifier = modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            CircularProgressIndicator(
+                color = NeonBlue,
+                strokeWidth = 3.dp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = if (isLoading) "Analisi in corso..." else "Dati insufficienti per l'analisi",
+                color = TextSecondary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 1. Z-Score Alert Banner
+            biometricReport.rhrAnomaly?.let { anomaly ->
+                if (anomaly.alertLevel != AlertLevel.GREEN) {
+                    ZScoreAlertBanner(anomaly = anomaly)
                 }
             }
+
+            // 2. Readiness Score Gauge
+            biometricReport.readiness?.let { readiness ->
+                ReadinessGaugeCard(readiness = readiness)
+            }
+
+            // 3. Vitals Summary (HR + SpO2 side by side)
+            VitalsRow(
+                heartRateFormatted = heartRateFormatted,
+                oxygenFormatted = oxygenFormatted
+            )
+
+            // 4. Training Load Section
+            SectionHeader(title = "Allenamento", icon = Icons.Default.FitnessCenter)
+
+            biometricReport.trimpResult?.let { trimp ->
+                TrimpCard(trimp = trimp)
+            }
+
+            biometricReport.fitnessFatigue?.let { ff ->
+                FitnessFatigueCards(fitnessFatigue = ff)
+            }
+
+            // 5. Autonomic Health Section
+            SectionHeader(title = "Recupero e Benessere", icon = Icons.Default.MonitorHeart)
+
+            biometricReport.sleepDipping?.let { dipping ->
+                SleepDippingCard(dipping = dipping)
+            }
+
+            biometricReport.baevskyStress?.let { stress ->
+                BaevskyStressCard(stress = stress)
+            }
+
+            biometricReport.rhrAnomaly?.let { anomaly ->
+                RhrTrendCard(anomaly = anomaly)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -158,7 +178,7 @@ fun HeartRateDetailScreen(
 // =============================================================================
 
 @Composable
-private fun ZScoreAlertBanner(anomaly: RhrAnomalyResult) {
+internal fun ZScoreAlertBanner(anomaly: RhrAnomalyResult) {
     val (bgColor, iconColor, icon, message) = when (anomaly.alertLevel) {
         AlertLevel.YELLOW -> listOf(
             WarningAmber.copy(alpha = 0.15f),
@@ -209,7 +229,7 @@ private fun ZScoreAlertBanner(anomaly: RhrAnomalyResult) {
 // =============================================================================
 
 @Composable
-private fun ReadinessGaugeCard(readiness: ReadinessResult) {
+internal fun ReadinessGaugeCard(readiness: ReadinessResult) {
     val animatedProgress = remember { Animatable(0f) }
 
     LaunchedEffect(readiness.score) {
@@ -335,7 +355,7 @@ private fun ReadinessGaugeCard(readiness: ReadinessResult) {
 }
 
 @Composable
-private fun ReadinessBreakdownRow(breakdown: ReadinessBreakdown) {
+internal fun ReadinessBreakdownRow(breakdown: ReadinessBreakdown) {
     val components = listOf(
         Triple("Sonno", breakdown.sleepComponent, 40.0),
         Triple("Riposo", breakdown.rhrComponent, 30.0),
@@ -396,7 +416,7 @@ private fun ReadinessBreakdownRow(breakdown: ReadinessBreakdown) {
 // =============================================================================
 
 @Composable
-private fun VitalsRow(heartRateFormatted: String, oxygenFormatted: String) {
+internal fun VitalsRow(heartRateFormatted: String, oxygenFormatted: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -474,7 +494,7 @@ private fun VitalsRow(heartRateFormatted: String, oxygenFormatted: String) {
 // =============================================================================
 
 @Composable
-private fun SectionHeader(title: String, icon: ImageVector) {
+internal fun SectionHeader(title: String, icon: ImageVector) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -500,7 +520,7 @@ private fun SectionHeader(title: String, icon: ImageVector) {
 // =============================================================================
 
 @Composable
-private fun TrimpCard(trimp: TrimpResult) {
+internal fun TrimpCard(trimp: TrimpResult) {
     MetricCard(
         title = "Intensità Sessione",
         value = "%.0f".format(trimp.trimp),
@@ -519,7 +539,7 @@ private fun TrimpCard(trimp: TrimpResult) {
 // =============================================================================
 
 @Composable
-private fun FitnessFatigueCards(fitnessFatigue: FitnessFatigueState) {
+internal fun FitnessFatigueCards(fitnessFatigue: FitnessFatigueState) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -571,7 +591,7 @@ private fun FitnessFatigueCards(fitnessFatigue: FitnessFatigueState) {
 }
 
 @Composable
-private fun CompactMetricCard(
+internal fun CompactMetricCard(
     title: String,
     label: String,
     value: String,
@@ -609,7 +629,7 @@ private fun CompactMetricCard(
 // =============================================================================
 
 @Composable
-private fun SleepDippingCard(dipping: SleepDippingResult) {
+internal fun SleepDippingCard(dipping: SleepDippingResult) {
     val (profileText, profileColor) = when (dipping.profile) {
         DippingProfile.REVERSE_DIPPER -> "Sotto Sforzo ⚠️" to ErrorRed
         DippingProfile.NON_DIPPER -> "Parziale" to WarningAmber
@@ -637,7 +657,7 @@ private fun SleepDippingCard(dipping: SleepDippingResult) {
 // =============================================================================
 
 @Composable
-private fun BaevskyStressCard(stress: BaevskyStressResult) {
+internal fun BaevskyStressCard(stress: BaevskyStressResult) {
     val stressLevel = when {
         stress.stressIndex < 50 -> "Basso" to SuccessGreen
         stress.stressIndex < 150 -> "Moderato" to WarningAmber
@@ -665,7 +685,7 @@ private fun BaevskyStressCard(stress: BaevskyStressResult) {
 // =============================================================================
 
 @Composable
-private fun RhrTrendCard(anomaly: RhrAnomalyResult) {
+internal fun RhrTrendCard(anomaly: RhrAnomalyResult) {
     val statusColor = when (anomaly.alertLevel) {
         AlertLevel.GREEN -> SuccessGreen
         AlertLevel.YELLOW -> WarningAmber
@@ -693,7 +713,7 @@ private fun RhrTrendCard(anomaly: RhrAnomalyResult) {
 // =============================================================================
 
 @Composable
-private fun MetricCard(
+internal fun MetricCard(
     title: String,
     value: String,
     subtitle: String,

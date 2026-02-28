@@ -1,24 +1,18 @@
 package com.ai_health.feature.dashboard
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.AutoAwesome // La scintilla ✨
-import androidx.compose.material.icons.rounded.ChatBubbleOutline // Il fumetto 💬
-import androidx.compose.animation.core.*
-import androidx.compose.ui.draw.scale
-import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
-import androidx.compose.foundation.clickable
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -27,147 +21,270 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer // Added for biomimetic animations
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ai_health.ui.components.*
 import com.ai_health.ui.theme.AppDimensions
 import com.ai_health.ui.theme.AppTheme
+import com.ai_health.ui.theme.BackgroundGradient
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.BorderStroke
 
-@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3Api::class)
+/**
+ * Main Dashboard Screen — 3 layers:
+ * 1. Base: Dashboard cards (top) + chat preview (bottom)
+ * 2. Expanded card: Detail (top 88%) + input bar (bottom 12%)
+ * 3. Fullscreen chat overlay (slides in from bottom, covers everything)
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    // AGGIUNGI QUESTI DUE PARAMETRI
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    chatViewModel: ChatViewModel,
     onMetricClick: (String) -> Unit,
-    onChatClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val pullToRefreshState = rememberPullToRefreshState()
-
     val onRefresh = { viewModel.refreshData() }
+    val focusManager = LocalFocusManager.current
 
-    // Calculate derived metrics
-    val sleepScore = state.sleepQualityAnalysis?.totalScore ?: 0
-    val readinessText = when {
-        sleepScore >= 80 -> "Batterie cariche. Ottimo giorno per allenarsi."
-        sleepScore >= 60 -> "Giornata stabile. Mantieni il ritmo."
-        sleepScore > 0 -> "Riposo consigliato. Non esagerare oggi."
-        else -> "Nessun dato sul sonno. Indossa il dispositivo stanotte."
+    // --- State ---
+    var expandedCard by remember { mutableStateOf<String?>(null) }
+    var isChatFullscreen by remember { mutableStateOf(false) }
+
+    // --- BackHandler: fullscreen chat → expanded card → exit ---
+    BackHandler(enabled = isChatFullscreen || expandedCard != null) {
+        when {
+            isChatFullscreen -> {
+                isChatFullscreen = false
+                focusManager.clearFocus()
+            }
+            expandedCard != null -> expandedCard = null
+        }
     }
 
-    // Calculate steps progress (Goal: 10,000 steps fallback)
-    val stepsValue = state.stepsFormatted.replace(",", "").replace(".", "").replace(" ", "").toIntOrNull() ?: 0
-    val stepsGoal = 10000
-    val stepsProgress = (stepsValue.toFloat() / stepsGoal).coerceIn(0f, 1f)
+    // --- Animated weights (dashboard 52/48, expanded 88/12) ---
+    val targetTopWeight = if (expandedCard != null) 0.88f else 0.52f
+    val animatedTopWeight by animateFloatAsState(
+        targetValue = targetTopWeight,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "topWeight"
+    )
+    val animatedBottomWeight by animateFloatAsState(
+        targetValue = 1f - targetTopWeight,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "bottomWeight"
+    )
 
-    AppBackground(contentPadding = false) {
-        PullToRefreshBox(
-            modifier = Modifier.statusBarsPadding(), // Handle top insets
-            state = pullToRefreshState,
-            isRefreshing = isRefreshing,
-            onRefresh = onRefresh,
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullToRefreshState,
-                    isRefreshing = isRefreshing,
-                    containerColor = AppTheme.colors.surfacePrimary,
-                    color = AppTheme.colors.accentBlue,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
-            }
-        ) {
-            LazyColumn(
+    // Derived metrics
+    val stepsValue = state.stepsFormatted.replace(",", "").replace(".", "").replace(" ", "").toIntOrNull() ?: 0
+    val stepsProgress = (stepsValue.toFloat() / 10000f).coerceIn(0f, 1f)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        // ==========================================================
+        // LAYER 1: Dashboard base (cards + chat preview / input bar)
+        // ==========================================================
+        AppBackground(contentPadding = false) {
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = AppDimensions.space4),
-                verticalArrangement = Arrangement.spacedBy(AppDimensions.space4),
-                contentPadding = PaddingValues(
-                    bottom = 32.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                )
+                    .statusBarsPadding()
             ) {
-                // 1. Header (Greeting + Date)
-                item {
-                    DashboardHeader(onSettingsClick = onSettingsClick)
-                }
-
-                // 2. Activity Section (Visual)
-                item {
-                    Text(
-                        "Attività di oggi",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppTheme.colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
-                    )
-                    ActivityProgressCard(
-                        steps = state.stepsFormatted,
-                        distance = state.distanceFormatted,
-                        calories = state.caloriesFormatted,
-                        progress = stepsProgress,
-                        onClick = { onMetricClick("steps") }
-                    )
-                }
-
-                // 3. Vitals Grid (Asymmetrical)
-                item {
-                    Text(
-                        "Parametri Vitali",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppTheme.colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
-                    )
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(AppDimensions.space3)) {
-                        // Left Column (HR)
-                        MetricMiniCard(
-                            title = "Battito",
-                            value = state.heartRateFormatted,
-                            unit = "bpm",
-                            icon = Icons.Rounded.Favorite,
-                            iconColor = AppTheme.colors.error,
-                            animationType = IconAnimationType.PULSE,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onMetricClick("hr") }
-                        )
-
-                        // Right Column (Sleep Duration)
-                        MetricMiniCard(
-                            title = "Sonno",
-                            value = state.sleepTimeFormatted,
-                            unit = "ore",
-                            icon = Icons.Rounded.Bedtime,
-                            iconColor = AppTheme.colors.accentPurple,
-                            animationType = IconAnimationType.ROCK,
-                            modifier = Modifier.weight(1f),
-                            onClick = { onMetricClick("sleep") }
-                        )
+                // --- TOP: Dashboard Cards OR Expanded Detail ---
+                Box(modifier = Modifier.weight(animatedTopWeight)) {
+                    Crossfade(
+                        targetState = expandedCard,
+                        animationSpec = tween(350),
+                        label = "card_crossfade"
+                    ) { currentExpandedCard ->
+                        if (currentExpandedCard == null) {
+                            DashboardCardsContent(
+                                state = state,
+                                pullToRefreshState = pullToRefreshState,
+                                isRefreshing = isRefreshing,
+                                onRefresh = onRefresh,
+                                stepsProgress = stepsProgress,
+                                onSettingsClick = onSettingsClick,
+                                onMetricClick = onMetricClick,
+                                onExpandCard = { expandedCard = it }
+                            )
+                        } else {
+                            ExpandedDetailContent(
+                                expandedCard = currentExpandedCard,
+                                state = state,
+                                viewModel = viewModel,
+                                onClose = { expandedCard = null }
+                            )
+                        }
                     }
                 }
 
-                // 5. Hero Section: Daily Focus
-                item {
-                    Text(
-                        "Assistente Digitale",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppTheme.colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
+                // --- BOTTOM: Chat preview (dashboard) or input bar (expanded) ---
+                Surface(
+                    modifier = Modifier
+                        .weight(animatedBottomWeight)
+                        .fillMaxWidth(),
+                    color = AppTheme.colors.backgroundPrimary,
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    tonalElevation = 2.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    if (expandedCard != null) {
+                        // Expanded mode: just input bar
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .navigationBarsPadding(),
+                            verticalArrangement = Arrangement.Bottom
+                        ) {
+                            ChatInputBar(
+                                onSend = { chatViewModel.sendMessage(it) },
+                                onFocusGained = { isChatFullscreen = true },
+                                key = isChatFullscreen
+                            )
+                        }
+                    } else {
+                        // Dashboard mode: full chat preview
+                        ChatSheetContent(
+                            viewModel = chatViewModel,
+                            modifier = Modifier.fillMaxSize(),
+                            onInputFocused = { isChatFullscreen = true }
+                        )
+                    }
+                }
+            }
+        }
+
+        // ==========================================================
+        // LAYER 2: Fullscreen chat overlay (slides up from bottom)
+        // ==========================================================
+        AnimatedVisibility(
+            visible = isChatFullscreen,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing)
+            ) + fadeIn(tween(250)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeOut(tween(200))
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding(),
+                color = AppTheme.colors.backgroundPrimary
+            ) {
+                ChatSheetContent(
+                    viewModel = chatViewModel,
+                    modifier = Modifier.fillMaxSize(),
+                    autoFocus = true
+                )
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════
+//  Sub-composables (extracted for clarity)
+// ═══════════════════════════════════════════
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DashboardCardsContent(
+    state: DashboardUiState,
+    pullToRefreshState: androidx.compose.material3.pulltorefresh.PullToRefreshState,
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    stepsProgress: Float,
+    onSettingsClick: () -> Unit,
+    onMetricClick: (String) -> Unit,
+    onExpandCard: (String) -> Unit
+) {
+    PullToRefreshBox(
+        modifier = Modifier.fillMaxSize(),
+        state = pullToRefreshState,
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                containerColor = AppTheme.colors.surfacePrimary,
+                color = AppTheme.colors.accentBlue,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = AppDimensions.space4),
+            verticalArrangement = Arrangement.spacedBy(AppDimensions.space4),
+            contentPadding = PaddingValues(bottom = 8.dp)
+        ) {
+            item { DashboardHeader(onSettingsClick = onSettingsClick) }
+
+            item {
+                Text(
+                    "Attività di oggi",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppTheme.colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
+                )
+                ActivityProgressCard(
+                    steps = state.stepsFormatted,
+                    distance = state.distanceFormatted,
+                    calories = state.caloriesFormatted,
+                    progress = stepsProgress,
+                    onClick = { onMetricClick("steps") }
+                )
+            }
+
+            item {
+                Text(
+                    "Parametri Vitali",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = AppTheme.colors.textSecondary,
+                    modifier = Modifier.padding(bottom = 4.dp, top = 8.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(AppDimensions.space3)) {
+                    MetricMiniCard(
+                        title = "Battito",
+                        value = state.heartRateFormatted,
+                        unit = "bpm",
+                        icon = Icons.Rounded.Favorite,
+                        iconColor = AppTheme.colors.error,
+                        animationType = IconAnimationType.PULSE,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onExpandCard("hr") }
                     )
-                    DailyFocusCard(
-                        readinessText = readinessText,
-                        // PASSA GLI SCOPE QUI
-                        sharedTransitionScope = sharedTransitionScope,
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        onClick = onChatClick
+                    MetricMiniCard(
+                        title = "Sonno",
+                        value = state.sleepTimeFormatted,
+                        unit = "ore",
+                        icon = Icons.Rounded.Bedtime,
+                        iconColor = AppTheme.colors.accentPurple,
+                        animationType = IconAnimationType.ROCK,
+                        modifier = Modifier.weight(1f),
+                        onClick = { onExpandCard("sleep") }
                     )
                 }
             }
@@ -175,18 +292,84 @@ fun DashboardScreen(
     }
 }
 
-// --- DEDICATED COMPONENTS ---
+@Composable
+private fun ExpandedDetailContent(
+    expandedCard: String,
+    state: DashboardUiState,
+    viewModel: DashboardViewModel,
+    onClose: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(AppTheme.colors.backgroundPrimary)
+    ) {
+        // Title + close button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = when (expandedCard) {
+                    "hr" -> "Battito Cardiaco"
+                    "sleep" -> "Dettaglio Sonno"
+                    else -> ""
+                },
+                style = MaterialTheme.typography.titleLarge,
+                color = AppTheme.colors.textPrimary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Rounded.Close, contentDescription = "Chiudi", tint = AppTheme.colors.textPrimary)
+            }
+        }
+
+        // Detail content
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .background(BackgroundGradient)
+        ) {
+            when (expandedCard) {
+                "hr" -> HeartRateDetailContent(
+                    biometricReport = state.biometricReport,
+                    heartRateFormatted = state.heartRateFormatted,
+                    oxygenFormatted = state.oxygenFormatted,
+                    isLoading = state.isBiometricLoading
+                )
+                "sleep" -> {
+                    val initialDate = state.selectedSleepSession?.let { session ->
+                        session.startTime.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                    }
+                    SleepDetailInlineContent(
+                        sleepNights = state.sleepNights,
+                        initialDate = initialDate,
+                        isLoadingMore = state.isLoadingMoreSleep,
+                        onPageChanged = { currentPage, totalPages ->
+                            viewModel.onPageChanged(currentPage, totalPages)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════
+//  UI Components
+// ═══════════════════════════════════════════
 
 @Composable
-fun DashboardHeader(
-    onSettingsClick: () -> Unit // <--- NUOVO PARAMETRO
-) {
+fun DashboardHeader(onSettingsClick: () -> Unit) {
     val dateStr = remember {
         LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.ITALIAN))
     }
-
-    val hour = java.time.LocalTime.now().hour
-    val greeting = when(hour) {
+    val greeting = when (java.time.LocalTime.now().hour) {
         in 5..11 -> "Buongiorno"
         in 12..17 -> "Buon pomeriggio"
         else -> "Buonasera"
@@ -195,14 +378,14 @@ fun DashboardHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp, bottom = 8.dp), // Aumentato top padding per respiro
+            .padding(top = 24.dp, bottom = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically // Allinea al centro verticale
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) { // Weight per spingere l'icona a destra
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = dateStr.uppercase(),
-                style = MaterialTheme.typography.labelSmall, // Più discreto
+                style = MaterialTheme.typography.labelSmall,
                 color = AppTheme.colors.textTertiary,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.sp
@@ -210,159 +393,31 @@ fun DashboardHeader(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "$greeting Angelo!",
-                style = MaterialTheme.typography.headlineSmall, // Leggermente più compatto
+                style = MaterialTheme.typography.headlineSmall,
                 color = AppTheme.colors.textPrimary,
                 fontWeight = FontWeight.Bold
             )
         }
 
-        // --- IL NUOVO TASTO PROFILO ---
         Surface(
             onClick = onSettingsClick,
             shape = CircleShape,
-            color = AppTheme.colors.surfacePrimary, // O surfaceSecondary
-            border = BorderStroke(1.dp, AppTheme.colors.surfaceSecondary.copy(alpha = 0.5f)), // Bordo sottile
-            modifier = Modifier.size(48.dp) // Dimensione tattile ottimale (48dp)
+            color = AppTheme.colors.surfacePrimary,
+            border = BorderStroke(1.dp, AppTheme.colors.surfaceSecondary.copy(alpha = 0.5f)),
+            modifier = Modifier.size(48.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                // Sfondo gradiente o tinta leggera
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(AppTheme.colors.accentBlue.copy(alpha = 0.1f))
                 )
-                // Se in futuro hai una foto, la metti qui.
-                // Per ora usiamo le iniziali o l'icona, ma stilizzata.
                 Text(
-                    text = "AQ", // Iniziali simulate (Angelo Quartarone)
+                    text = "AQ",
                     style = MaterialTheme.typography.titleMedium,
                     color = AppTheme.colors.accentBlue,
                     fontWeight = FontWeight.Bold
                 )
-
-                // Opzionale: Icona Settings piccola sovrapposta (badge)
-                /* Icon(
-                    Icons.Rounded.Settings,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp).align(Alignment.BottomEnd).padding(4.dp),
-                    tint = AppTheme.colors.textSecondary
-                ) */
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalSharedTransitionApi::class)
-@Composable
-fun DailyFocusCard(
-    readinessText: String,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onClick: () -> Unit
-) {
-    with(sharedTransitionScope) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
-        ) {
-            // ... (Parte Messaggio AI: Avatar + Bubble - RIMANE UGUALE A PRIMA) ...
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(AppTheme.colors.accentPurple, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = null,
-                        tint = Color.White,
-                        /*modifier = Modifier
-                            .size(20.dp)
-                            .biomimeticAnimation(IconAnimationType.TWINKLE)*/
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Surface(
-                    color = AppTheme.colors.surfacePrimary,
-                    shape = RoundedCornerShape(
-                        topStart = 20.dp,
-                        topEnd = 20.dp,
-                        bottomEnd = 20.dp,
-                        bottomStart = 4.dp
-                    ),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "AI Health Coach",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AppTheme.colors.accentPurple,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        Text(
-                            text = "Ciao Angelo! Ho notato che il tuo sonno è stato ottimo, ma hai camminato poco. Analizziamo?",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppTheme.colors.textPrimary,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            }
-            // ... (Fine Parte Messaggio) ...
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // --- L'AREA INPUT CHE SI ANIMA ---
-            // Deve essere identica a quella della ChatScreen
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp) // Altezza identica alla chat
-                    // 1. Modifier dell'animazione
-                    .sharedElement(
-                        rememberSharedContentState(key = "chat_input_area"),
-                        animatedVisibilityScope = animatedVisibilityScope
-                    )
-                    // 2. Modifier visivi (sfondo e click) applicati DOPO sharedElement
-                    .clip(CircleShape) // Importante per il ripple effect
-                    .background(AppTheme.colors.surfacePrimary) // Colore identico alla chat
-                    .clickable(onClick = onClick)
-                    .padding(horizontal = 20.dp), // Padding interno
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Scrivi un messaggio...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AppTheme.colors.textTertiary,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    // Icona Send finta (visiva)
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(AppTheme.colors.accentBlue, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Send,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
             }
         }
     }
@@ -390,7 +445,6 @@ fun ActivityProgressCard(
                 Text(steps, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = AppTheme.colors.textPrimary)
             }
 
-            // Visual Progress Bar
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
@@ -401,7 +455,6 @@ fun ActivityProgressCard(
                 trackColor = AppTheme.colors.surfacePrimary
             )
 
-            // Secondary Details
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -442,10 +495,9 @@ fun MetricMiniCard(
                     tint = iconColor,
                     modifier = Modifier
                         .size(18.dp)
-                        .biomimeticAnimation(animationType, value) // Pass value for BPM
+                        .biomimeticAnimation(animationType, value)
                 )
             }
-
             Column {
                 Text(
                     text = value,
@@ -463,126 +515,34 @@ fun MetricMiniCard(
     }
 }
 
-@Composable
-fun MetricWideRow(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    animationType: IconAnimationType = IconAnimationType.NONE, // Add animation support
-    onClick: () -> Unit
-) {
-    AppCard(onClick = onClick, contentPadding = 16.dp) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    icon, 
-                    contentDescription = null, 
-                    tint = AppTheme.colors.textTertiary,
-                    modifier = Modifier.biomimeticAnimation(animationType)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(title, style = MaterialTheme.typography.bodyLarge, color = AppTheme.colors.textSecondary)
-            }
-            Text(
-                value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = AppTheme.colors.textPrimary
-            )
-        }
-    }
-}
+// ═══════════════════════════════════════════
+//  Biomimetic Animations
+// ═══════════════════════════════════════════
 
-// --- BIOMIMETIC ANIMATIONS ---
-
-enum class IconAnimationType {
-    NONE, PULSE, ROCK, FLOAT, TWINKLE
-}
+enum class IconAnimationType { NONE, PULSE, ROCK, FLOAT, TWINKLE }
 
 @Composable
-fun Modifier.biomimeticAnimation(
-    type: IconAnimationType,
-    value: String = "0" // Used for BPM dynamic calculation
-): Modifier {
-    val infiniteTransition = rememberInfiniteTransition(label = "biomimetic_${type.name}")
-
+fun Modifier.biomimeticAnimation(type: IconAnimationType, value: String = "0"): Modifier {
+    val transition = rememberInfiniteTransition(label = "bio_${type.name}")
     return when (type) {
         IconAnimationType.PULSE -> {
-            // Pulse Logic: Calculate duration based on BPM
             val bpm = value.toIntOrNull()?.coerceAtLeast(40) ?: 60
-            val durationMillis = (60000 / bpm).coerceAtLeast(300) // limit max speed
-
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = 1.2f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis / 2, easing = FastOutSlowInEasing), // Systole
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "pulse_scale"
-            )
-            this.scale(scale)
+            val dur = (60000 / bpm).coerceAtLeast(300)
+            val s by transition.animateFloat(1f, 1.2f, infiniteRepeatable(tween(dur / 2, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "pulse")
+            this.scale(s)
         }
         IconAnimationType.ROCK -> {
-            // Rock Logic: Sleep icon gently rocking
-            val rotation by infiniteTransition.animateFloat(
-                initialValue = -20f,
-                targetValue = 10f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(3000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "rock_rotation"
-            )
-            this.graphicsLayer { rotationZ = rotation }
+            val r by transition.animateFloat(-20f, 10f, infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Reverse), label = "rock")
+            this.graphicsLayer { rotationZ = r }
         }
         IconAnimationType.FLOAT -> {
-            // Breathing Logic: Slow expansion/contraction for Oxygen (Respiro)
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = 1.20f, // Espansione leggera (10%), meno aggressiva del cuore
-                animationSpec = infiniteRepeatable(
-                    // 3000ms = 3 secondi per inspirare, 3 per espirare (ciclo tot 6s).
-                    // Molto rilassante, tipico di un respiro profondo.
-                    animation = tween(3000, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "breath_scale"
-            )
-
-            // Applica la scala uniformemente
-            this.graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            val s by transition.animateFloat(1f, 1.2f, infiniteRepeatable(tween(3000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "float")
+            this.graphicsLayer { scaleX = s; scaleY = s }
         }
         IconAnimationType.TWINKLE -> {
-            // Twinkle Logic: AI Magic
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 1.0f,
-                targetValue = 1.15f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1000, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "twinkle_scale"
-            )
-            val rotation by infiniteTransition.animateFloat(
-                initialValue = -10f,
-                targetValue = 10f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1500, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "twinkle_rotation"
-            )
-            this
-                .scale(scale)
-                .graphicsLayer { rotationZ = rotation }
+            val s by transition.animateFloat(1f, 1.15f, infiniteRepeatable(tween(1000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "tw_s")
+            val r by transition.animateFloat(-10f, 10f, infiniteRepeatable(tween(1500, easing = LinearEasing), RepeatMode.Reverse), label = "tw_r")
+            this.scale(s).graphicsLayer { rotationZ = r }
         }
         IconAnimationType.NONE -> this
     }

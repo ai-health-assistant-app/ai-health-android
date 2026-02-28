@@ -1,8 +1,5 @@
 package com.ai_health.feature.dashboard
 
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -14,12 +11,14 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 
 /**
- * Dashboard feature navigation graph extension.
+ * Dashboard feature navigation graph.
+ * 
+ * Chat and HR/Sleep detail views are now handled inline within DashboardScreen
+ * (ModalBottomSheet for chat, expandable overlay for details).
+ * Only Steps/Cal/Dist chart routes remain as separate navigation destinations.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 fun NavGraphBuilder.dashboardGraph(
     navController: androidx.navigation.NavHostController,
-    sharedTransitionScope: SharedTransitionScope, // <--- Importante
     onMetricClick: (String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -31,15 +30,13 @@ fun NavGraphBuilder.dashboardGraph(
         composable(route = "dashboard") { entry ->
             val parentEntry = remember(entry) { navController.getBackStackEntry("dashboard_graph") }
             val viewModel: DashboardViewModel = hiltViewModel(parentEntry)
+            // ChatViewModel scoped to dashboard_graph so it persists across the session
+            val chatViewModel: ChatViewModel = hiltViewModel(parentEntry)
 
             DashboardScreen(
                 viewModel = viewModel,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = this, // 'this' è AnimatedVisibilityScope
+                chatViewModel = chatViewModel,
                 onMetricClick = onMetricClick,
-                onChatClick = {
-                    navController.navigate("chat")
-                },
                 onSettingsClick = {
                     navController.navigate("settings")
                 }
@@ -55,20 +52,7 @@ fun NavGraphBuilder.dashboardGraph(
             )
         }
 
-        // Chat Screen
-        composable(route = "chat") {
-            val viewModel: ChatViewModel = hiltViewModel()
-            ChatScreen(
-                viewModel = viewModel,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = this, // 'this' è AnimatedVisibilityScope
-                onBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // Detail chart screen (Chart logic remains same)
+        // Detail chart screen — only for chart-based metrics (steps, cal, dist)
         composable(
             route = "detail/{type}",
             arguments = listOf(
@@ -84,7 +68,6 @@ fun NavGraphBuilder.dashboardGraph(
 
             val type = backStackEntry.arguments?.getString("type") ?: ""
 
-            // ... (Logica dati invariata) ...
             val historyData = when(type) {
                 "steps" -> state.stepsHistory
                 "sleep" -> state.sleepHistory
@@ -95,34 +78,11 @@ fun NavGraphBuilder.dashboardGraph(
                 else -> emptyList()
             }
 
-            if (type == "sleep") {
-                val initialDate = state.selectedSleepSession?.let { session ->
-                    session.startTime.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-                }
-                SleepDetailScreen(
-                    sleepNights = state.sleepNights,
-                    initialDate = initialDate,
-                    isLoadingMore = state.isLoadingMoreSleep,
-                    onPageChanged = { currentPage, totalPages ->
-                        dashboardViewModel.onPageChanged(currentPage, totalPages)
-                    },
-                    onBack = onBack
-                )
-            } else if (type == "hr") {
-                HeartRateDetailScreen(
-                    biometricReport = state.biometricReport,
-                    heartRateFormatted = state.heartRateFormatted,
-                    oxygenFormatted = state.oxygenFormatted,
-                    isLoading = state.isBiometricLoading,
-                    onBack = onBack
-                )
-            } else {
-                DetailChartScreen(
-                    metricType = type,
-                    data = historyData,
-                    onBack = onBack
-                )
-            }
+            DetailChartScreen(
+                metricType = type,
+                data = historyData,
+                onBack = onBack
+            )
         }
     }
 }

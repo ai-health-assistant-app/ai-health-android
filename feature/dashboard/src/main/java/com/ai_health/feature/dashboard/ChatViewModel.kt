@@ -200,6 +200,15 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Clear all chat messages from Room and reset UI state */
+    fun clearChat() {
+        viewModelScope.launch {
+            chatMessageDao.clearHistory()
+            // The Flow from loadHistory will automatically pick up the empty state
+            // and re-insert the welcome message
+        }
+    }
+
     // Metodo addMessage rimosso perché la UI è guidata dal Flow del Database Room
 
     private fun calculateBaselineRhr(heartRates: List<HeartRateRec>): Int {
