@@ -48,7 +48,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.ai_health.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepDetailScreen(
     sleepNights: List<SleepNightData>,
@@ -57,23 +57,6 @@ fun SleepDetailScreen(
     onPageChanged: (currentPage: Int, totalPages: Int) -> Unit,
     onBack: () -> Unit
 ) {
-    // Find the initial page index based on the selected date
-    val initialPage = if (initialDate != null) {
-        sleepNights.indexOfFirst { it.date == initialDate }.coerceAtLeast(0)
-    } else {
-        0
-    }
-    
-    val pagerState = rememberPagerState(
-        initialPage = initialPage,
-        pageCount = { sleepNights.size }
-    )
-    
-    // Monitor page changes for lazy loading
-    LaunchedEffect(pagerState.currentPage) {
-        onPageChanged(pagerState.currentPage, sleepNights.size)
-    }
-    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -101,25 +84,64 @@ fun SleepDetailScreen(
                 .background(BackgroundGradient)
                 .padding(padding)
         ) {
-        if (sleepNights.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Nessun dato sul sonno disponibile",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextTertiary
-                )
-            }
-        } else {
+            SleepDetailInlineContent(
+                sleepNights = sleepNights,
+                initialDate = initialDate,
+                isLoadingMore = isLoadingMore,
+                onPageChanged = onPageChanged
+            )
+        }
+    }
+}
+
+/**
+ * Reusable content composable for sleep detail.
+ * Can be used standalone inside the Dashboard's expanded card overlay.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun SleepDetailInlineContent(
+    sleepNights: List<SleepNightData>,
+    initialDate: LocalDate?,
+    isLoadingMore: Boolean,
+    onPageChanged: (currentPage: Int, totalPages: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val initialPage = if (initialDate != null) {
+        sleepNights.indexOfFirst { it.date == initialDate }.coerceAtLeast(0)
+    } else {
+        0
+    }
+
+    if (sleepNights.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Nessun dato sul sonno disponibile",
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextTertiary
+            )
+        }
+    } else {
+        val pagerState = rememberPagerState(
+            initialPage = initialPage,
+            pageCount = { sleepNights.size }
+        )
+
+        LaunchedEffect(pagerState.currentPage) {
+            onPageChanged(pagerState.currentPage, sleepNights.size)
+        }
+
+        Box(modifier = modifier.fillMaxSize()) {
             HorizontalPager(
                 state = pagerState,
                 reverseLayout = true,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 val nightData = sleepNights[page]
-                
+
                 if (nightData.session != null && nightData.analysis != null) {
                     SleepDetailContent(
                         session = nightData.session,
@@ -129,7 +151,7 @@ fun SleepDetailScreen(
                     EmptyNightScreen(date = nightData.date)
                 }
             }
-            
+
             if (isLoadingMore) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -142,13 +164,12 @@ fun SleepDetailScreen(
                 }
             }
         }
-        }
     }
 }
 
 
 @Composable
-private fun SleepDetailContent(
+fun SleepDetailContent(
     session: SleepSessionRec,
     analysis: SleepQualityResult
 ) {

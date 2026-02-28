@@ -4,139 +4,173 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ai_health.ui.theme.AppTheme
 import com.ai_health.ui.theme.AppDimensions
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+/**
+ * Chat content — WhatsApp/Telegram style layout:
+ *  - Header: pinned at top, never moves
+ *  - Messages: fill middle, gravity to bottom
+ *  - Input: sits above keyboard via imePadding()
+ */
 @Composable
-fun ChatScreen(
+fun ChatSheetContent(
     viewModel: ChatViewModel,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onBack: () -> Unit
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
+    onInputFocused: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listState = rememberLazyListState()
 
-    // Scroll to bottom when new messages arrive
+    // Track previous message count to only animate on NEW messages
+    val previousMessageCount = remember { mutableIntStateOf(uiState.messages.size) }
+
     LaunchedEffect(uiState.messages.size) {
         if (uiState.messages.isNotEmpty()) {
-            listState.animateScrollToItem(uiState.messages.size - 1)
+            if (uiState.messages.size > previousMessageCount.intValue) {
+                listState.animateScrollToItem(uiState.messages.size - 1)
+            } else {
+                listState.scrollToItem(uiState.messages.size - 1)
+            }
+            previousMessageCount.intValue = uiState.messages.size
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            "AI Assistant",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.textPrimary
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(AppTheme.colors.success, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                "Online",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = AppTheme.colors.success
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Torna indietro",
-                            tint = AppTheme.colors.textPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = AppTheme.colors.backgroundPrimary,
-                    scrolledContainerColor = AppTheme.colors.backgroundPrimary
-                )
-            )
-        },
-        containerColor = AppTheme.colors.backgroundPrimary
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+    ) {
+        // ── HEADER: always pinned at top ──────────────────────────
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = AppTheme.colors.backgroundPrimary,
+            tonalElevation = 2.dp,
+            shadowElevation = 2.dp
         ) {
-            // Chat Content
-            LazyColumn(
-                state = listState,
+            Row(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = AppDimensions.space4),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                items(uiState.messages) { message ->
-                    ChatBubble(
-                        message = message.text,
-                        isUser = message.isUser
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(AppTheme.colors.accentPurple, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.AutoAwesome,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
-                if (uiState.isLoading) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
-                             CircularProgressIndicator(
-                                 modifier = Modifier.size(24.dp),
-                                 color = AppTheme.colors.accentPurple,
-                                 strokeWidth = 2.dp
-                             )
-                        }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "AI Health Coach",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AppTheme.colors.textPrimary
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(AppTheme.colors.success, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "Online",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AppTheme.colors.success
+                        )
                     }
                 }
-                
-                if (uiState.error != null) {
-                     item {
-                        Text(
-                            text = "Errore: ${uiState.error}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(8.dp)
+
+                IconButton(
+                    onClick = { viewModel.clearChat() },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Nuova chat",
+                        tint = AppTheme.colors.textTertiary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // ── MESSAGES: fill remaining space, gravity to bottom ─────
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = AppDimensions.space4),
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.Bottom),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            items(uiState.messages) { message ->
+                ChatBubble(
+                    message = message.text,
+                    isUser = message.isUser
+                )
+            }
+
+            if (uiState.isLoading) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = AppTheme.colors.accentPurple,
+                            strokeWidth = 2.dp
                         )
-                     }
+                    }
                 }
             }
 
-            // Input Area
-            ChatInputArea(
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope,
-                onSend = { text -> viewModel.sendMessage(text) }
-            )
+            if (uiState.error != null) {
+                item {
+                    Text(
+                        text = "Errore: ${uiState.error}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
         }
+
+        // ── INPUT: above keyboard ────────────────────────────────
+        ChatInputBar(
+            onSend = { text -> viewModel.sendMessage(text) },
+            onFocusGained = onInputFocused,
+            autoFocus = autoFocus
+        )
     }
 }
 
@@ -191,81 +225,95 @@ fun ChatBubble(
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+/**
+ * Chat input bar — sits above keyboard via imePadding applied externally.
+ */
 @Composable
-fun ChatInputArea(
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
-    onSend: (String) -> Unit
+fun ChatInputBar(
+    onSend: (String) -> Unit,
+    onFocusGained: () -> Unit = {},
+    modifier: Modifier = Modifier,
+    autoFocus: Boolean = false,
+    key: Any? = null
 ) {
     var text by remember { mutableStateOf("") }
+    var hasFiredFocus by remember(key) { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
 
-    with(sharedTransitionScope) {
-        // Contenitore trasparente di base
-        Box(
+    // Auto-focus when entering fullscreen
+    LaunchedEffect(autoFocus) {
+        if (autoFocus) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .imePadding()
+            .background(AppTheme.colors.backgroundPrimary)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppTheme.colors.backgroundPrimary)
-                .padding(16.dp)
-                .navigationBarsPadding()
+                .height(56.dp)
+                .background(AppTheme.colors.surfacePrimary, CircleShape)
+                .padding(start = 20.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // --- LA PILLOLA CHE SI ANIMA ---
-            // Ora contiene TUTTO: Testo E Bottone
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp) // Altezza fissa
-                    // Shared Element applicato al contenitore Row
-                    .sharedElement(
-                        rememberSharedContentState(key = "chat_input_area"),
-                        animatedVisibilityScope = animatedVisibilityScope
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                placeholder = {
+                    Text(
+                        text = "Scrivi un messaggio...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppTheme.colors.textTertiary
                     )
-                    // Stile della pillola
-                    .background(AppTheme.colors.surfacePrimary, CircleShape)
-                    .padding(start = 20.dp, end = 8.dp), // Padding interno (meno a destra per il bottone)
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Testo Input
-                TextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    placeholder = {
-                        Text(
-                            text = "Scrivi un messaggio...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = AppTheme.colors.textTertiary
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    singleLine = true
-                )
-
-                // Bottone Invia (ORA DENTRO LA PILLOLA)
-                IconButton(
-                    onClick = { 
-                        if (text.isNotBlank()) {
-                            onSend(text) 
-                            text = ""
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester)
+                    .onFocusChanged { focusState ->
+                        if (focusState.isFocused && !hasFiredFocus) {
+                            hasFiredFocus = true
+                            onFocusGained()
+                        }
+                        if (!focusState.isFocused) {
+                            hasFiredFocus = false
                         }
                     },
-                    modifier = Modifier
-                        .size(40.dp) // Un po' più piccolo per stare bene dentro
-                        .background(if (text.isNotBlank()) AppTheme.colors.accentBlue else AppTheme.colors.surfaceSecondary, CircleShape),
-                    enabled = text.isNotBlank()
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Send,
-                        contentDescription = "Invia",
-                        tint = if (text.isNotBlank()) Color.White else AppTheme.colors.textTertiary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                singleLine = true
+            )
+
+            IconButton(
+                onClick = {
+                    if (text.isNotBlank()) {
+                        onSend(text)
+                        text = ""
+                    }
+                },
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        if (text.isNotBlank()) AppTheme.colors.accentBlue else AppTheme.colors.surfaceSecondary,
+                        CircleShape
+                    ),
+                enabled = text.isNotBlank()
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.Send,
+                    contentDescription = "Invia",
+                    tint = if (text.isNotBlank()) Color.White else AppTheme.colors.textTertiary,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

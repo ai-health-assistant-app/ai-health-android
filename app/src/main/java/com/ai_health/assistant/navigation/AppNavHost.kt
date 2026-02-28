@@ -1,8 +1,6 @@
 package com.ai_health.assistant.navigation
 
 import android.content.Context
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,7 +24,6 @@ import com.ai_health.feature.onboarding.onboardingGraph
 /**
  * Main navigation orchestrator for the application.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavHost(
     modifier: Modifier = Modifier,
@@ -48,60 +45,51 @@ fun AppNavHost(
 
     // Only show navigation once we've determined the start destination
     if (!isLoading) {
-        // Gestore delle transizioni condivise (necessario per l'animazione della chat)
-        SharedTransitionLayout(modifier = modifier) {
+        NavHost(
+            navController = navController,
+            startDestination = if (startDestination == "dashboard") "dashboard_graph" else startDestination,
+            modifier = modifier,
+            enterTransition = {
+                fadeIn(animationSpec = tween(400)) + slideInHorizontally(animationSpec = tween(400), initialOffsetX = { it / 10 })
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(400))
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(400))
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(400)) + slideOutHorizontally(animationSpec = tween(400), targetOffsetX = { it / 10 })
+            }
+        ) {
+            // Onboarding feature navigation graph
+            onboardingGraph(
+                onOnboardingFinished = {
+                    navController.navigate("dashboard_graph") {
+                        popUpTo("onboarding") { inclusive = true }
+                    }
+                }
+            )
 
-            NavHost(
+            // Dashboard feature navigation graph
+            dashboardGraph(
                 navController = navController,
-                startDestination = if (startDestination == "dashboard") "dashboard_graph" else startDestination,
-                enterTransition = {
-                    fadeIn(animationSpec = tween(400)) + slideInHorizontally(animationSpec = tween(400), initialOffsetX = { it / 10 })
+                onMetricClick = { type ->
+                    navController.navigate("detail/$type")
                 },
-                exitTransition = {
-                    fadeOut(animationSpec = tween(400))
-                },
-                popEnterTransition = {
-                    fadeIn(animationSpec = tween(400))
-                },
-                popExitTransition = {
-                    fadeOut(animationSpec = tween(400)) + slideOutHorizontally(animationSpec = tween(400), targetOffsetX = { it / 10 })
+                onBack = {
+                    navController.popBackStack()
                 }
+            )
+
+            composable(
+                route = "settings",
+                enterTransition = { slideInHorizontally { it } },
+                exitTransition = { slideOutHorizontally { it } }
             ) {
-                // Onboarding feature navigation graph
-                onboardingGraph(
-                    // RIMOSSO navController qui perché la tua funzione non lo richiede
-                    onOnboardingFinished = {
-                        // Navigate to dashboard and clear onboarding from back stack
-                        navController.navigate("dashboard_graph") {
-                            popUpTo("onboarding") { inclusive = true }
-                        }
-                    }
+                com.ai_health.feature.dashboard.SettingsScreen(
+                    onBack = { navController.popBackStack() }
                 )
-
-                // Dashboard feature navigation graph
-                dashboardGraph(
-                    navController = navController,
-                    // Passiamo lo scope per l'animazione della pillola Chat
-                    sharedTransitionScope = this@SharedTransitionLayout,
-                    onMetricClick = { type ->
-                        navController.navigate("detail/$type")
-                    },
-                    onBack = {
-                        navController.popBackStack()
-                    }
-                )
-
-
-                composable(
-                    route = "settings",
-                    enterTransition = { slideInHorizontally { it } }, // Entra da destra
-                    exitTransition = { slideOutHorizontally { it } }
-                ) {
-                    // Importa la SettingsScreen che abbiamo appena creato
-                    com.ai_health.feature.dashboard.SettingsScreen(
-                        onBack = { navController.popBackStack() }
-                    )
-                }
             }
         }
     }
