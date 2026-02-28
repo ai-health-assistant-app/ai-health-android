@@ -43,9 +43,10 @@ import com.ai_health.core.data.local.entity.SyncTokenEntity
         SleepSessionEntity::class,
         SleepStageEntity::class,
         SyncTokenEntity::class,          // NEW: Token per Changes API
-        com.ai_health.core.data.local.entity.UserProfileEntity::class // Added User Profile
+        com.ai_health.core.data.local.entity.UserProfileEntity::class, // Added User Profile
+        com.ai_health.core.data.local.entity.ChatMessageEntity::class // NEW: Chat History
     ],
-    version = 6, // Incrementing version because schema changed
+    version = 7, // Incrementing version because schema changed
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -54,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun sleepDao(): SleepDao
     abstract fun syncTokenDao(): SyncTokenDao  // NEW: Per gestione token sincronizzazione
     abstract fun userDao(): com.ai_health.core.data.local.dao.UserDao
+    abstract fun chatMessageDao(): com.ai_health.core.data.local.dao.ChatMessageDao
     
     // NOTA: Il metodo getDatabase() è stato rimosso.
     // La creazione del DB crittografato è gestita da DataModule via Hilt DI.

@@ -114,6 +114,12 @@ object DatabaseModule {
 
     @Provides
     @Singleton
+    fun provideChatMessageDao(database: AppDatabase): com.ai_health.core.data.local.dao.ChatMessageDao {
+        return database.chatMessageDao()
+    }
+
+    @Provides
+    @Singleton
     fun provideDataStore(@ApplicationContext context: Context): androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
         return context.dataStore
     }
