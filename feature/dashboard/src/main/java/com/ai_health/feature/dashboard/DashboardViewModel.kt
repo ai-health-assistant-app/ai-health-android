@@ -40,6 +40,23 @@ private data class Quadruple<A, B, C, D>(
     val fourth: D
 )
 
+private data class Quintuple<A, B, C, D, E>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E
+)
+
+private data class Sextuple<A, B, C, D, E, F>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D,
+    val fifth: E,
+    val sixth: F
+)
+
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val getDashboardDataUseCase: GetDashboardDataUseCase,
@@ -76,6 +93,8 @@ class DashboardViewModel @Inject constructor(
     // Fetch heart rate history for baseline and session analysis
     private val heartRateFlow = healthRepository.getHeartRateHistory(thirtyDaysAgo)
 
+    val isRefreshing: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_IS_REFRESHING, false)
+
     val uiState: StateFlow<DashboardUiState> = getDashboardDataUseCase()
         .combine(sleepSessionsFlow) { data, sleepSessions -> Pair(data, sleepSessions) }
         .combine(heartRateFlow) { (data, sleepSessions), allHeartRates -> 
@@ -85,13 +104,19 @@ class DashboardViewModel @Inject constructor(
             Quadruple(data, sleepSessions, allHeartRates, weeksLoaded)
         }
         .combine(_isLoadingMoreSleep) { (data, sleepSessions, allHeartRates, weeksLoaded), isLoadingMore ->
+            Quintuple(data, sleepSessions, allHeartRates, weeksLoaded, isLoadingMore)
+        }
+        .combine(_biometricReport) { (data, sleepSessions, allHeartRates, weeksLoaded, isLoadingMore), biometric ->
+            Sextuple(data, sleepSessions, allHeartRates, weeksLoaded, isLoadingMore, biometric)
+        }
+        .combine(isRefreshing) { (data, sleepSessions, allHeartRates, weeksLoaded, isLoadingMore, biometric), refreshing ->
             val h = data.sleepMinutes / 60
             val m = data.sleepMinutes % 60
             
             // Calculate baseline RHR from last 7 days of data
             val baselineRhr = calculateBaselineRhr(allHeartRates)
             
-            // Generate date sequence based on weeks loaded
+            // Generate date sequence based on weeks loaded. Note: we no longer compute inside mapping if possible, but keep cache for sync operations
             val sleepNights = generateSleepNights(
                 sleepSessions = sleepSessions,
                 allHeartRates = allHeartRates,
@@ -99,11 +124,17 @@ class DashboardViewModel @Inject constructor(
                 weeksToShow = weeksLoaded
             )
             
-            // Trigger biometric computation with fresh data
-            computeBiometrics(allHeartRates, sleepSessions, baselineRhr)
+            // Trigger biometric computation ONLY if we have new data and it's not currently running
+            // This async call updates _biometricReport, which triggers THIS combine block again
+            if (allHeartRates.isNotEmpty() && (biometric == null)) {
+               computeBiometrics(allHeartRates, sleepSessions, baselineRhr)
+            }
 
             DashboardUiState(
-                isLoading = false,
+                // Se i dati core (sleep o heart rate) ci sono, restiamo in loading finché _biometricReport non è calcolato (e refresh terminato)
+                isLoading = refreshing && data.stepsHistory.isEmpty() && data.sleepHistory.isEmpty() 
+                            || (!refreshing && allHeartRates.isNotEmpty() && biometric == null),
+
                 stepsFormatted = "${data.steps}",
                 sleepTimeFormatted = "${h}h ${m}m",
                 heartRateFormatted = "${data.avgHeartRate} bpm",
@@ -120,15 +151,16 @@ class DashboardViewModel @Inject constructor(
                 
                 selectedSleepSession = data.latestSleepSession,
                 sleepQualityAnalysis = data.latestSleepSession?.let { session ->
-                    sleepAnalysisCache.getOrPut(session.id) {
-                        val hrData = getHeartRatesForSession(allHeartRates, session)
+                    val hrData = getHeartRatesForSession(allHeartRates, session)
+                    val cacheKey = "${session.id}_${session.hashCode()}_hr${hrData.size}"
+                    sleepAnalysisCache.getOrPut(cacheKey) {
                         analyzeSleepQualityUseCase(session, hrData, baselineRhr)
                     }
                 },
                 
                 sleepNights = sleepNights,
                 isLoadingMoreSleep = isLoadingMore,
-                biometricReport = _biometricReport.value,
+                biometricReport = biometric,
                 isBiometricLoading = _isBiometricLoading.value
             )
         }
@@ -141,8 +173,6 @@ class DashboardViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = DashboardUiState(isLoading = true)
         )
-
-    val isRefreshing: StateFlow<Boolean> = savedStateHandle.getStateFlow(KEY_IS_REFRESHING, false)
 
     init {
         refreshData()
@@ -197,6 +227,9 @@ class DashboardViewModel @Inject constructor(
                 // Reset pagination to initial state
                 _weeksLoaded.value = INITIAL_WEEKS_TO_LOAD
                 
+                // Clear the biometric report so it gets recalculated with fresh data
+                _biometricReport.value = null
+                
                 // Forza il sync dei dati da Health Connect
                 healthRepository.syncHealthData()
             } catch (e: Exception) {
@@ -245,8 +278,9 @@ class DashboardViewModel @Inject constructor(
         return dateSequence.map { date ->
             val session = sessionsByDate[date]
             val analysis = session?.let { sess ->
-                sleepAnalysisCache.getOrPut(sess.id) {
-                    val hrData = getHeartRatesForSession(allHeartRates, sess)
+                val hrData = getHeartRatesForSession(allHeartRates, sess)
+                val cacheKey = "${sess.id}_${sess.hashCode()}_hr${hrData.size}"
+                sleepAnalysisCache.getOrPut(cacheKey) {
                     analyzeSleepQualityUseCase(sess, hrData, baselineRhr)
                 }
             }
@@ -304,8 +338,7 @@ class DashboardViewModel @Inject constructor(
         sleepSessions: List<SleepSessionRec>,
         baselineRhr: Int
     ) {
-        if (allHeartRates.isEmpty()) return
-        if (_isBiometricLoading.value) return
+        if (allHeartRates.isEmpty() || _isBiometricLoading.value) return
         
         viewModelScope.launch {
             _isBiometricLoading.value = true
@@ -353,9 +386,10 @@ class DashboardViewModel @Inject constructor(
                                 )
                             }
                         }
-                        
                         // Get sleep quality score from cache or compute
-                        val analysis = sleepAnalysisCache[latestSleep.id]
+                        val hrData = getHeartRatesForSession(allHeartRates, latestSleep)
+                        val cacheKey = "${latestSleep.id}_${latestSleep.hashCode()}_hr${hrData.size}"
+                        val analysis = sleepAnalysisCache[cacheKey]
                         sleepScore = analysis?.totalScore
                     }
                     
