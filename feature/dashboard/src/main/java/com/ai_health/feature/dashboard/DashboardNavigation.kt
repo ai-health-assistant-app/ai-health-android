@@ -98,6 +98,7 @@ fun NavGraphBuilder.dashboardGraph(
                 HeartRateDetailScreen(
                     biometricReport = state.biometricReport,
                     heartRateFormatted = state.heartRateFormatted,
+                    oxygenFormatted = state.oxygenFormatted,
                     isLoading = state.isBiometricLoading,
                     onBack = onBack
                 )

@@ -48,13 +48,14 @@ import kotlin.math.roundToInt
 fun HeartRateDetailScreen(
     biometricReport: BiometricReport?,
     heartRateFormatted: String,
+    oxygenFormatted: String,
     isLoading: Boolean,
     onBack: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Biometric Intelligence") },
+                title = { Text("Battito Cardiaco") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -88,7 +89,7 @@ fun HeartRateDetailScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = if (isLoading) "Analisi biometrica in corso..." else "Dati insufficienti per l'analisi",
+                        text = if (isLoading) "Analisi in corso..." else "Dati insufficienti per l'analisi",
                         color = TextSecondary,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -113,11 +114,14 @@ fun HeartRateDetailScreen(
                         ReadinessGaugeCard(readiness = readiness)
                     }
 
-                    // 3. Current HR Summary
-                    CurrentHrCard(heartRateFormatted = heartRateFormatted)
+                    // 3. Vitals Summary (HR + SpO2 side by side)
+                    VitalsRow(
+                        heartRateFormatted = heartRateFormatted,
+                        oxygenFormatted = oxygenFormatted
+                    )
 
                     // 4. Training Load Section
-                    SectionHeader(title = "Carico di Allenamento", icon = Icons.Default.FitnessCenter)
+                    SectionHeader(title = "Allenamento", icon = Icons.Default.FitnessCenter)
 
                     biometricReport.trimpResult?.let { trimp ->
                         TrimpCard(trimp = trimp)
@@ -128,7 +132,7 @@ fun HeartRateDetailScreen(
                     }
 
                     // 5. Autonomic Health Section
-                    SectionHeader(title = "Salute Autonomica", icon = Icons.Default.MonitorHeart)
+                    SectionHeader(title = "Recupero e Benessere", icon = Icons.Default.MonitorHeart)
 
                     biometricReport.sleepDipping?.let { dipping ->
                         SleepDippingCard(dipping = dipping)
@@ -160,13 +164,13 @@ private fun ZScoreAlertBanner(anomaly: RhrAnomalyResult) {
             WarningAmber.copy(alpha = 0.15f),
             WarningAmber,
             Icons.Default.Warning,
-            "Attenzione: La tua FC a riposo è elevata (+%.1f deviazioni). Possibile stress, alcol o inizio infezione.".format(anomaly.zScore)
+            "Attenzione: Il tuo battito a riposo è più alto del solito. Possibile stress, stanchezza accumulata o inizio di un malanno."
         )
         AlertLevel.RED -> listOf(
             ErrorRed.copy(alpha = 0.15f),
             ErrorRed,
             Icons.Default.Error,
-            "Allarme: FC a riposo anormalmente alta (+%.1f σ). Alta probabilità di malattia o overtraining. Riposo consigliato.".format(anomaly.zScore)
+            "Allarme: Il battito a riposo è significativamente sopra la tua media. Concediti una giornata di riposo e monitora i sintomi."
         )
         else -> return
     }
@@ -239,7 +243,7 @@ private fun ReadinessGaugeCard(readiness: ReadinessResult) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Readiness Score",
+                text = "Prontezza",
                 style = MaterialTheme.typography.titleMedium,
                 color = TextSecondary
             )
@@ -316,7 +320,7 @@ private fun ReadinessGaugeCard(readiness: ReadinessResult) {
             if (readiness.isOverridden) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "⚠️ Punteggio limitato per anomalia RHR",
+                    text = "⚠️ Punteggio limitato: battito a riposo anomalo",
                     style = MaterialTheme.typography.bodySmall,
                     color = ErrorRed
                 )
@@ -334,9 +338,9 @@ private fun ReadinessGaugeCard(readiness: ReadinessResult) {
 private fun ReadinessBreakdownRow(breakdown: ReadinessBreakdown) {
     val components = listOf(
         Triple("Sonno", breakdown.sleepComponent, 40.0),
-        Triple("RHR", breakdown.rhrComponent, 30.0),
+        Triple("Riposo", breakdown.rhrComponent, 30.0),
         Triple("Allenamento", breakdown.trainingComponent, 20.0),
-        Triple("Volatilità", breakdown.volatilityComponent, 10.0)
+        Triple("Stabilità Notturna", breakdown.volatilityComponent, 10.0)
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -388,40 +392,77 @@ private fun ReadinessBreakdownRow(breakdown: ReadinessBreakdown) {
 }
 
 // =============================================================================
-// Current HR Card
+// Vitals Row (HR + SpO2)
 // =============================================================================
 
 @Composable
-private fun CurrentHrCard(heartRateFormatted: String) {
-    Card(
+private fun VitalsRow(heartRateFormatted: String, oxygenFormatted: String) {
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.5f)),
-        shape = RoundedCornerShape(16.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        // Heart Rate card
+        Card(
+            modifier = Modifier.weight(1f),
+            colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Favorite,
-                contentDescription = null,
-                tint = ErrorRed,
-                modifier = Modifier.size(32.dp)
-            )
-            Column {
-                Text(
-                    text = "Frequenza Cardiaca Media",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextTertiary
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = ErrorRed,
+                    modifier = Modifier.size(28.dp)
                 )
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = heartRateFormatted,
                     style = MaterialTheme.typography.headlineSmall,
                     color = TextPrimary,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Frequenza Media",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextTertiary
+                )
+            }
+        }
+
+        // SpO2 card
+        Card(
+            modifier = Modifier.weight(1f),
+            colors = CardDefaults.cardColors(containerColor = MidnightBase.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Air,
+                    contentDescription = null,
+                    tint = NeonBlueBright,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = oxygenFormatted,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Ossigenazione (SpO\u2082)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextTertiary
                 )
             }
         }
@@ -461,10 +502,10 @@ private fun SectionHeader(title: String, icon: ImageVector) {
 @Composable
 private fun TrimpCard(trimp: TrimpResult) {
     MetricCard(
-        title = "Session TRIMP",
+        title = "Intensità Sessione",
         value = "%.0f".format(trimp.trimp),
-        subtitle = "Carico sessione (Banister)",
-        detail = "Durata: %.0f min · HRR avg: %.0f%%".format(
+        subtitle = "Sforzo complessivo della sessione",
+        detail = "Durata: %.0f min · Intensità media: %.0f%%".format(
             trimp.durationMinutes,
             trimp.avgHrReserveFraction * 100
         ),
@@ -483,32 +524,32 @@ private fun FitnessFatigueCards(fitnessFatigue: FitnessFatigueState) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // CTL - Fitness
+        // Resistenza (ex CTL)
         CompactMetricCard(
-            title = "CTL",
-            label = "Fitness",
-            value = "%.1f".format(fitnessFatigue.ctl),
+            title = "%.1f".format(fitnessFatigue.ctl),
+            label = "Resistenza",
+            value = "",
             color = MintGreen,
             modifier = Modifier.weight(1f)
         )
-        // ATL - Fatigue
+        // Fatica (ex ATL)
         CompactMetricCard(
-            title = "ATL",
+            title = "%.1f".format(fitnessFatigue.atl),
             label = "Fatica",
-            value = "%.1f".format(fitnessFatigue.atl),
+            value = "",
             color = SunsetOrange,
             modifier = Modifier.weight(1f)
         )
-        // TSB - Form
+        // Equilibrio (ex TSB)
         val tsbColor = when {
             fitnessFatigue.tsb > 5 -> SuccessGreen
             fitnessFatigue.tsb > -10 -> WarningAmber
             else -> ErrorRed
         }
         CompactMetricCard(
-            title = "TSB",
-            label = "Forma",
-            value = "%+.1f".format(fitnessFatigue.tsb),
+            title = "%+.1f".format(fitnessFatigue.tsb),
+            label = "Equilibrio",
+            value = "",
             color = tsbColor,
             modifier = Modifier.weight(1f)
         )
@@ -550,12 +591,6 @@ private fun CompactMetricCard(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = 22.sp),
                 color = color,
                 fontWeight = FontWeight.Bold
@@ -576,23 +611,23 @@ private fun CompactMetricCard(
 @Composable
 private fun SleepDippingCard(dipping: SleepDippingResult) {
     val (profileText, profileColor) = when (dipping.profile) {
-        DippingProfile.REVERSE_DIPPER -> "Reverse Dipper ⚠️" to ErrorRed
-        DippingProfile.NON_DIPPER -> "Non-Dipper" to WarningAmber
-        DippingProfile.NORMAL_DIPPER -> "Normal Dipper ✓" to SuccessGreen
-        DippingProfile.EXTREME_DIPPER -> "Extreme Dipper" to InfoBlue
+        DippingProfile.REVERSE_DIPPER -> "Sotto Sforzo ⚠️" to ErrorRed
+        DippingProfile.NON_DIPPER -> "Parziale" to WarningAmber
+        DippingProfile.NORMAL_DIPPER -> "Ottimale ✓" to SuccessGreen
+        DippingProfile.EXTREME_DIPPER -> "Molto Profondo" to InfoBlue
     }
 
     MetricCard(
-        title = "Sleep Dipping Ratio",
+        title = "Recupero Notturno",
         value = "%.1f%%".format(dipping.dippingPercent),
         subtitle = profileText,
         detail = when (dipping.profile) {
-            DippingProfile.REVERSE_DIPPER -> "La FC è salita durante il sonno — possibile stress cardiovascolare"
-            DippingProfile.NON_DIPPER -> "Calo insufficiente (< 10%) — fattore di rischio cardiovascolare"
-            DippingProfile.NORMAL_DIPPER -> "Calo fisiologico sano (10-20%) — ottimo recupero notturno"
-            DippingProfile.EXTREME_DIPPER -> "Calo > 20% — monitora regolarmente"
+            DippingProfile.REVERSE_DIPPER -> "Il cuore non si è rilassato durante la notte. Possibile accumulo di stress."
+            DippingProfile.NON_DIPPER -> "Il recupero notturno è stato parziale. Prova a ridurre caffeina e schermi prima di dormire."
+            DippingProfile.NORMAL_DIPPER -> "Il tuo cuore si è rilassato bene durante la notte. Ottimo recupero!"
+            DippingProfile.EXTREME_DIPPER -> "Calo molto marcato durante la notte. Monitora regolarmente."
         },
-        icon = Icons.Default.Bedtime,
+        icon = Icons.Default.NightsStay,
         iconColor = profileColor
     )
 }
@@ -611,14 +646,15 @@ private fun BaevskyStressCard(stress: BaevskyStressResult) {
     }
 
     MetricCard(
-        title = "Indice di Stress (Baevsky)",
+        title = "Indice di Stress",
         value = "%.0f".format(stress.stressIndex),
         subtitle = "Livello: ${stressLevel.first}",
-        detail = "Moda RR: %.3fs · Ampiezza: %.1f%% · Range: %.3fs".format(
-            stress.modeRR,
-            stress.modeAmplitude,
-            stress.variationRange
-        ),
+        detail = when {
+            stress.stressIndex < 50 -> "Il tuo sistema nervoso è in equilibrio. Buon livello di rilassamento."
+            stress.stressIndex < 150 -> "Livello di tensione nella norma. Nulla di preoccupante."
+            stress.stressIndex < 500 -> "Tensione elevata rilevata. Considera una pausa o tecniche di rilassamento."
+            else -> "Forte tensione rilevata. Dai priorità al riposo oggi."
+        },
         icon = Icons.Default.Psychology,
         iconColor = stressLevel.second
     )
@@ -636,11 +672,17 @@ private fun RhrTrendCard(anomaly: RhrAnomalyResult) {
         AlertLevel.RED -> ErrorRed
     }
 
+    val statusText = when (anomaly.alertLevel) {
+        AlertLevel.GREEN -> "Nella norma"
+        AlertLevel.YELLOW -> "Leggermente alto"
+        AlertLevel.RED -> "Fuori dalla norma"
+    }
+
     MetricCard(
-        title = "RHR Trend (Z-Score)",
-        value = "%+.2f σ".format(anomaly.zScore),
-        subtitle = "RHR oggi: %.0f bpm · Media 30d: %.0f bpm".format(anomaly.todayRhr, anomaly.mean30d),
-        detail = "Deviazione std: %.1f bpm".format(anomaly.stdDev30d),
+        title = "Tendenza Battito a Riposo",
+        value = "%.0f bpm".format(anomaly.todayRhr),
+        subtitle = statusText,
+        detail = "La tua media degli ultimi 30 giorni è %.0f bpm".format(anomaly.mean30d),
         icon = Icons.AutoMirrored.Filled.TrendingUp,
         iconColor = statusColor
     )
