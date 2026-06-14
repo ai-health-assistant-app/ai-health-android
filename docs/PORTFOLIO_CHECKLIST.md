@@ -19,7 +19,7 @@ Concrete cleanup items to make HealthTwin a stronger, more credible showcase. Or
 - [ ] **Prune branches.** Remote has `steps--unused`, `steps-refactor--unused`; local has unmerged `PPG-measurement`, `heart`, `steps`, `steps-refactor`. Delete or document them so the branch list tells a clean story.
 - [ ] **Delete the stale local `core/domain/bin/` directory** (compiled leftovers; already gitignored, but remove it locally).
 - [ ] **Finish the in-flight refactor** (UserRepository move to `core:domain`) and commit, so `git status` is clean.
-- [ ] **Add a `LICENSE`** (e.g. MIT) so the repo's terms are explicit.
+- [x] **Add a `LICENSE`** — done: MIT.
 
 ## D. Security note (low severity, do it anyway)
 - [ ] **Firebase config (`app/google-services.json`) is committed.** These keys are identifiers, not secrets (security is enforced by Firebase **Security Rules** + **App Check** + SHA-256 signing-cert restrictions), so this is *not* a breach — but for a public portfolio: lock down Security Rules, enable App Check, restrict the API key in Google Cloud Console, and consider pointing the public repo at a throwaway Firebase project.

@@ -133,7 +133,7 @@ Being honest about the gaps is part of the point:
 
 ## License
 
-No license file yet — see the checklist. Until one is added, all rights reserved by the author.
+Released under the [MIT License](LICENSE) © 2026 Angelo Quartarone.
 
 ---
 
