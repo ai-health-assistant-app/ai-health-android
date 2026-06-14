@@ -25,18 +25,16 @@ import com.google.android.gms.tasks.Tasks
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    // === Cloudflare Tunnels Configuration ===
-    
-    // 1. Chat Backend (Retrofit)
-    //private const val CHAT_BASE_URL = "https://example.com/"
-    private const val CHAT_BASE_URL = "http://10.0.2.2:8001"
-    
-    // 2. Firebase Emulators (Firebase SDK)
-    // INCOLLA QUI I TUOI URL DI CLOUDFLARE (Senza https:// e senza slash finale)
-    //private const val AUTH_HOST = "example.com"      // Tunnel porta 9099
+    // === Backend / Firebase host configuration ===
+    // For local development, point these at your backend + Firebase Emulator Suite.
+    // 10.0.2.2 is the Android emulator's alias for the host machine's localhost.
+    // TODO: make these build-configurable (BuildConfig/flavor) — see docs/PORTFOLIO_CHECKLIST.md
 
+    // Chat backend (Retrofit)
+    private const val CHAT_BASE_URL = "http://10.0.2.2:8001"
+
+    // Firebase Emulators (Firebase SDK)
     private const val AUTH_HOST = "10.0.2.2"
-    //private const val FIRESTORE_HOST = "example.com" // Tunnel porta 8080
 
     private const val FIRESTORE_HOST = "10.0.2.2"
 

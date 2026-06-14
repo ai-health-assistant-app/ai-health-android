@@ -102,6 +102,7 @@ cd ai_health_android
 ./gradlew assembleDebug
 ```
 
+- **Firebase config is not committed.** Copy `app/google-services.json.example` to `app/google-services.json` and fill in your own Firebase project's values (download it from the Firebase console).
 - The **dashboard and on-device engine work** against any Health Connect data source (install a wearable companion app, or seed data via Health Connect).
 - **Sign-in and chat require the backend.** The app currently targets a local address (`NetworkModule.CHAT_BASE_URL`) and Firebase **emulators**. To use them you must run the FastAPI backend + Firebase Emulator Suite on your LAN and point the app at them. Deploying the backend is the first item in [`docs/PORTFOLIO_CHECKLIST.md`](docs/PORTFOLIO_CHECKLIST.md).
 

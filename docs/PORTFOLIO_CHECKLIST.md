@@ -3,7 +3,7 @@
 Concrete cleanup items to make HealthTwin a stronger, more credible showcase. Ordered by impact. None of these touch the biometric engine (the strong part). I (Claude) can execute any of these on request — just say which.
 
 ## A. Make it real (highest impact)
-- [ ] **Deploy the backend.** Today `NetworkModule.CHAT_BASE_URL` points at `http://10.0.2.2:8001` and Firebase uses local emulators, so sign-in + chat don't work for a fresh install. Deploy the FastAPI service (e.g. Cloud Run), move secrets to a secret manager, switch to a real Firebase project.
+- [ ] **Deploy the backend.** `NetworkModule.CHAT_BASE_URL` points at a local placeholder (`http://10.0.2.2:8001`) and Firebase uses local emulators, so sign-in + chat don't work for a fresh install. Deploy the FastAPI service (e.g. Cloud Run), move secrets to a secret manager, switch to a real Firebase project.
 - [ ] **Enforce HTTPS / disable cleartext for release.** `usesCleartextTraffic="true"` is fine for the LAN dev box, not for a shipped/demoed build — gate it to debug only.
 - [ ] **Make the base URL build-configurable** (BuildConfig field / flavor) instead of a hardcoded constant.
 
