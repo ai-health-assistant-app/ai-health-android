@@ -16,6 +16,9 @@ local.properties
 .idea/
 .kotlin
 **/build/
-**/*.md
 /bin
 **/bin/
+
+# NOTE: previously this file ignored ALL markdown (**/*.md), which hid the
+# README and every doc from git/GitHub. Removed so portfolio docs are tracked.
+# If you want to hide specific internal notes, ignore them by explicit path instead.
