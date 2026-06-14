@@ -1,11 +1,11 @@
-package com.ai_health.core.data.repository
+package com.ai_health.core.domain.repository
 
-import com.ai_health.core.data.local.entity.UserProfileEntity
+import com.ai_health.core.domain.model.User
 import kotlinx.coroutines.flow.Flow
 
 interface UserRepository {
-    val userProfile: Flow<UserProfileEntity>
-    suspend fun saveUser(user: UserProfileEntity)
+    val userProfile: Flow<User>
+    suspend fun saveUser(user: User)
     
     suspend fun signInWithGoogle(idToken: String): Result<Unit>
     suspend fun signOut()

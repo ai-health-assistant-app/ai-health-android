@@ -2,6 +2,8 @@ package com.ai_health.core.data.repository
 
 import com.ai_health.core.data.local.dao.UserDao
 import com.ai_health.core.data.local.entity.UserProfileEntity
+import com.ai_health.core.domain.model.User
+import com.ai_health.core.domain.repository.UserRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import kotlinx.coroutines.CoroutineScope
@@ -12,7 +14,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 import android.util.Log
 
@@ -31,15 +34,39 @@ class UserRepositoryImpl @Inject constructor(
     }
     */
 
-    override val userProfile: Flow<UserProfileEntity> = userDao.getUserProfile().map { 
-        it ?: UserProfileEntity() 
+    override val userProfile: Flow<User> = userDao.getUserProfile().map { 
+        val entity = it ?: UserProfileEntity() 
+        User(
+            id = entity.id,
+            name = entity.name,
+            surname = entity.surname,
+            email = entity.email,
+            photoUrl = entity.photoUrl,
+            uid = entity.uid,
+            birthDate = entity.birthDate,
+            gender = entity.gender,
+            weight = entity.weight,
+            height = entity.height
+        )
     }
 
-    override suspend fun saveUser(user: UserProfileEntity) {
-        userDao.insertUser(user)
+    override suspend fun saveUser(user: User) {
+        val entity = UserProfileEntity(
+            id = user.id,
+            name = user.name,
+            surname = user.surname,
+            email = user.email,
+            photoUrl = user.photoUrl,
+            uid = user.uid,
+            birthDate = user.birthDate,
+            gender = user.gender,
+            weight = user.weight,
+            height = user.height
+        )
+        userDao.insertUser(entity)
     }
 
-    override suspend fun signInWithGoogle(idToken: String): Result<Unit> = suspendCoroutine { cont ->
+    override suspend fun signInWithGoogle(idToken: String): Result<Unit> = suspendCancellableCoroutine { cont ->
         Log.d(TAG, "signInWithGoogle called with token: ${idToken.take(10)}...")
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential)
@@ -49,25 +76,36 @@ class UserRepositoryImpl @Inject constructor(
                 if (user != null) {
                     // Update local user profile
                     CoroutineScope(Dispatchers.IO).launch {
-                        val currentProfile = userDao.getUserProfile().first() ?: UserProfileEntity()
-                        val updatedProfile = currentProfile.copy(
-                            uid = user.uid,
-                            name = user.displayName ?: currentProfile.name,
-                            email = user.email ?: currentProfile.email,
-                            photoUrl = user.photoUrl?.toString() ?: ""
-                        )
-                        saveUser(updatedProfile)
-                        Log.d(TAG, "Local user profile updated.")
+                        try {
+                            val currentProfile = userDao.getUserProfile().first() ?: UserProfileEntity()
+                            val updatedProfile = User(
+                                id = currentProfile.id,
+                                name = user.displayName ?: currentProfile.name,
+                                surname = currentProfile.surname,
+                                email = user.email ?: currentProfile.email,
+                                photoUrl = user.photoUrl?.toString() ?: currentProfile.photoUrl,
+                                uid = user.uid,
+                                birthDate = currentProfile.birthDate,
+                                gender = currentProfile.gender,
+                                weight = currentProfile.weight,
+                                height = currentProfile.height
+                            )
+                            saveUser(updatedProfile)
+                            Log.d(TAG, "Local user profile updated.")
+                            if (cont.isActive) cont.resume(Result.success(Unit))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to update local user profile", e)
+                            if (cont.isActive) cont.resume(Result.failure(e))
+                        }
                     }
-                    cont.resume(Result.success(Unit))
                 } else {
                     Log.e(TAG, "FirebaseAuth success but user is null")
-                    cont.resume(Result.failure(Exception("User is null")))
+                    if (cont.isActive) cont.resume(Result.failure(Exception("User is null")))
                 }
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "FirebaseAuth signIn failed", e)
-                cont.resume(Result.failure(e))
+                if (cont.isActive) cont.resume(Result.failure(e))
             }
     }
 
@@ -79,22 +117,33 @@ class UserRepositoryImpl @Inject constructor(
         // Let's just clear the auth fields in local DB or keep them?
         // Usually logout clears sensitive session data.
         val currentProfile = userDao.getUserProfile().first() ?: UserProfileEntity()
-        val signedOutProfile = currentProfile.copy(uid = "", photoUrl = "")
+        val signedOutProfile = User(
+            id = currentProfile.id,
+            name = currentProfile.name,
+            surname = currentProfile.surname,
+            email = currentProfile.email,
+            photoUrl = "",
+            uid = "",
+            birthDate = currentProfile.birthDate,
+            gender = currentProfile.gender,
+            weight = currentProfile.weight,
+            height = currentProfile.height
+        )
         saveUser(signedOutProfile)
     }
 
-    override suspend fun getAuthToken(): String? = suspendCoroutine { cont ->
+    override suspend fun getAuthToken(): String? = suspendCancellableCoroutine { cont ->
         val user = auth.currentUser
         if (user != null) {
             user.getIdToken(true)
                 .addOnSuccessListener { result ->
-                    cont.resume(result.token)
+                    if (cont.isActive) cont.resume(result.token)
                 }
                 .addOnFailureListener {
-                    cont.resume(null)
+                    if (cont.isActive) cont.resume(null)
                 }
         } else {
-            cont.resume(null)
+            if (cont.isActive) cont.resume(null)
         }
     }
 }

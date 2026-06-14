@@ -48,9 +48,25 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val user by viewModel.userProfile.collectAsStateWithLifecycle()
+    val saveStatus by viewModel.saveStatus.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(saveStatus) {
+        when (val status = saveStatus) {
+            is SaveStatus.Success -> {
+                Toast.makeText(context, "Profilo salvato", Toast.LENGTH_SHORT).show()
+                viewModel.resetSaveStatus()
+                onBack()
+            }
+            is SaveStatus.Error -> {
+                snackbarHostState.showSnackbar(status.message)
+                viewModel.resetSaveStatus()
+            }
+            else -> {}
+        }
+    }
 
     // Local state for form fields
     var name by remember(user) { mutableStateOf(user.name) }
@@ -129,12 +145,19 @@ fun SettingsScreen(
             FloatingActionButton(
                 onClick = {
                     viewModel.saveProfile(name, weight, height, selectedGender)
-                    onBack()
                 },
                 containerColor = AppTheme.colors.accentBlue,
                 contentColor = Color.White
             ) {
-                Icon(Icons.Rounded.Save, "Salva")
+                if (saveStatus is SaveStatus.Saving) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Rounded.Save, "Salva")
+                }
             }
         }
     ) { padding ->
