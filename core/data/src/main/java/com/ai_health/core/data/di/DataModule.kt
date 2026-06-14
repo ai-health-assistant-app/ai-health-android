@@ -33,13 +33,19 @@ abstract class RepositoryModule {
     @Singleton
     abstract fun bindUserRepository(
         userRepositoryImpl: com.ai_health.core.data.repository.UserRepositoryImpl
-    ): com.ai_health.core.data.repository.UserRepository
+    ): com.ai_health.core.domain.repository.UserRepository
 
     @Binds
     @Singleton
     abstract fun bindChatRepository(
         chatRepositoryImpl: com.ai_health.core.data.repository.ChatRepositoryImpl
     ): com.ai_health.core.domain.repository.ChatRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDispatcherProvider(
+        defaultDispatcherProvider: com.ai_health.core.data.util.DefaultDispatcherProvider
+    ): com.ai_health.core.domain.util.DispatcherProvider
 }
 
 @Module

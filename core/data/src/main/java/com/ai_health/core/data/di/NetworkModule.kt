@@ -61,6 +61,7 @@ object NetworkModule {
                     }
                 } catch (e: Exception) {
                     Log.e("NetworkModule", "Error fetching Firebase token", e)
+                    throw java.io.IOException("Failed to fetch Firebase token", e)
                 }
             }
             

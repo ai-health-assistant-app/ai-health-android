@@ -5,6 +5,7 @@ import com.ai_health.core.data.remote.model.*
 import com.ai_health.core.domain.repository.ChatRepository
 import com.ai_health.core.domain.model.ChatRequestDomain
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 
 class ChatRepositoryImpl @Inject constructor(
     private val api: ChatApi
@@ -32,6 +33,8 @@ class ChatRepositoryImpl @Inject constructor(
             val request = ChatRequest(context = contextDto, messages = messageDtos)
             val response = api.sendMessage(request)
             Result.success(response.response)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             Result.failure(e)

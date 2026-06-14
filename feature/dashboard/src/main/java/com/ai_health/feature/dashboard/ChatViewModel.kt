@@ -26,6 +26,7 @@ import java.time.ZoneId
 import com.ai_health.core.domain.repository.HealthRepository
 import com.ai_health.core.domain.usecase.biometric.BiometricEngineUseCase
 import com.ai_health.core.domain.usecase.sleep.AnalyzeSleepQualityUseCase
+import com.ai_health.core.domain.util.DispatcherProvider
 
 data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
@@ -40,21 +41,26 @@ data class ChatUiState(
     val error: String? = null
 )
 
+data class BiometricContext(
+    val report: BiometricReport? = null,
+    val sleepAnalysis: SleepQualityResult? = null
+)
+
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
     private val chatMessageDao: ChatMessageDao,
     private val healthRepository: HealthRepository,
     private val biometricEngineUseCase: BiometricEngineUseCase,
-    private val analyzeSleepQualityUseCase: AnalyzeSleepQualityUseCase
+    private val analyzeSleepQualityUseCase: AnalyzeSleepQualityUseCase,
+    private val dispatchers: DispatcherProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    // Cache per i dati biometrici
-    private var cachedBiometricReport: BiometricReport? = null
-    private var cachedSleepAnalysis: SleepQualityResult? = null
+    // Cache thread-safe per i dati biometrici
+    private val biometricContext = MutableStateFlow(BiometricContext())
 
     init {
         loadHistory()
@@ -86,13 +92,15 @@ class ChatViewModel @Inject constructor(
 
             combine(sleepFlow, hrFlow) { sleepSessions, heartRates ->
                 // Manteniamo una logica semplificata e fluida senza bloccare la UI
-                withContext(Dispatchers.Default) {
+                withContext(dispatchers.default) {
                     try {
                         val latestSleep = sleepSessions.maxByOrNull { it.endTime }
                         
                         // Calcolo Baseline RHR (simile alla dashboard)
                         val baselineRhr = calculateBaselineRhr(heartRates) 
 
+                        var localSleepAnalysis: SleepQualityResult? = null
+                        var localBiometricReport: BiometricReport? = null
                         var daytimeAvg: Double? = null
                         var nocturnalAvg: Double? = null
                         var nocturnalSamples: List<HrSample> = emptyList()
@@ -106,7 +114,7 @@ class ChatViewModel @Inject constructor(
                             }
 
                             val sleepHrSamples = heartRates.filter { it.time >= sleepStart && it.time <= sleepEnd }
-                            cachedSleepAnalysis = analyzeSleepQualityUseCase(latestSleep, sleepHrSamples, baselineRhr)
+                            localSleepAnalysis = analyzeSleepQualityUseCase(latestSleep, sleepHrSamples, baselineRhr)
 
                             val daytimeHr = hrForSession.filter { it.time < sleepStart }
                             val nocturnalHr = hrForSession.filter { it.time in sleepStart..sleepEnd }
@@ -126,15 +134,19 @@ class ChatViewModel @Inject constructor(
                         if (heartRates.isNotEmpty()) {
                             val dailyRhrHistory = buildDailyRhrHistory(heartRates)
 
-                            cachedBiometricReport = biometricEngineUseCase(
+                            localBiometricReport = biometricEngineUseCase(
                                 heartRateRecords = heartRates,
                                 profile = com.ai_health.core.domain.model.UserBiometricProfile(190, baselineRhr, true),
-                                sleepScore = cachedSleepAnalysis?.totalScore,
+                                sleepScore = localSleepAnalysis?.totalScore,
                                 dailyRhrHistory = dailyRhrHistory,
                                 daytimeAvgHr = daytimeAvg,
                                 nocturnalAvgHr = nocturnalAvg,
                                 nocturnalHrSamples = nocturnalSamples
                             )
+                        }
+
+                        biometricContext.update { 
+                            it.copy(report = localBiometricReport, sleepAnalysis = localSleepAnalysis) 
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -161,9 +173,10 @@ class ChatViewModel @Inject constructor(
             }
 
             // 3. Usa le metriche reali cachate (se non ci sono ancora pronti setta null)
-            val readinessDomain = cachedBiometricReport?.readiness?.score?.let { ReadinessContextDomain(it) }
+            val currentBioCtx = biometricContext.value
+            val readinessDomain = currentBioCtx.report?.readiness?.score?.let { ReadinessContextDomain(it) }
             
-            val sleepDomain = cachedSleepAnalysis?.let { sa ->
+            val sleepDomain = currentBioCtx.sleepAnalysis?.let { sa ->
                 SleepContextDomain(
                     score = sa.totalScore,
                     deepSleepDurationMin = sa.deepSleepDuration.toMinutes(),
@@ -172,8 +185,8 @@ class ChatViewModel @Inject constructor(
                 )
             }
 
-            val stressDomain = cachedBiometricReport?.baevskyStress?.stressIndex?.let { StressContextDomain(it) }
-            val trainingLoadDomain = cachedBiometricReport?.fitnessFatigue?.let { ff ->
+            val stressDomain = currentBioCtx.report?.baevskyStress?.stressIndex?.let { StressContextDomain(it) }
+            val trainingLoadDomain = currentBioCtx.report?.fitnessFatigue?.let { ff ->
                 TrainingLoadContextDomain(tsbForm = ff.tsb, fatigueAtl = ff.atl)
             }
 

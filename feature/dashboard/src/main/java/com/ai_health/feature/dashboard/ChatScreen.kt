@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -38,7 +39,7 @@ fun ChatSheetContent(
     autoFocus: Boolean = false,
     onInputFocused: () -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
     // Track previous message count to only animate on NEW messages
@@ -250,7 +251,7 @@ fun ChatInputBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .imePadding()
+            .windowInsetsPadding(WindowInsets.ime)
             .background(AppTheme.colors.backgroundPrimary)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
