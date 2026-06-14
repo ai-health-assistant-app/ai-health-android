@@ -1,4 +1,8 @@
-# HealthTwin
+<p align="center">
+  <img src="docs/app-icon.svg" width="116" height="116" alt="HealthTwin app icon"/>
+</p>
+
+<h1 align="center">HealthTwin</h1>
 
 **An Android health companion that turns passive wearable data into a daily "Readiness" score — with all the biometric math running on-device, and a privacy-first design where raw health data never leaves the phone.**
 
